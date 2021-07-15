@@ -36,14 +36,15 @@ def similar_lat(r1, r2, offset):
     return abs(r1['Lat'] - r2['Lat']) < offset
 
 
-def similar_lon(r1, r2, offset):
+def similar_lon(r1, r2, offset=0.2):
     # r1 and r2 are pandas dataframe rows
     return abs(r1['Lon'] - r2['Lon']) < offset
 
 
-def similar_date(r1, r2, offset):
+def similar_date(r1, r2, offset=1):
     # r1 and r2 are pandas dataframe rows
     # Check if the days are close together
+    # offset an integer of hours
     same_year = r1['Year'] == r2['Year']
     same_month = r1['Month'] == r2['Month']
     similar_day = abs(r1['Day'] - r2['Day']) < offset

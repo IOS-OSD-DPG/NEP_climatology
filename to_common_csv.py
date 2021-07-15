@@ -1,4 +1,4 @@
-# Export all oxygen climatology data to common csv format
+# Export all oxygen climatology data to common csv format: Profile data table
 # Sources: IOS, NODC, MEDS
 
 from xarray import open_dataset
@@ -140,7 +140,7 @@ def nodc_to_common_csv(nodc_files, sourcetype):
     
     # Export to csv file
     output_folder = '/home/hourstonh/Documents/climatology/data_extracts/'
-    nodc_name = 'MEDS_{}_Profiles_Oxy_1991_2020.csv'.format(sourcetype)
+    nodc_name = 'NODC_{}_Profiles_Oxy_1991_2020.csv'.format(sourcetype)
     nodc_df.to_csv(output_folder + nodc_name)
     
     # Flag duplicate rows in the dataframe
