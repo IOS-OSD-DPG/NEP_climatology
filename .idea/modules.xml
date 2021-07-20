@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/climatology.iml" filepath="$PROJECT_DIR$/.idea/climatology.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/NEP_climatology.iml" filepath="$PROJECT_DIR$/.idea/NEP_climatology.iml" />
     </modules>
   </component>
 </project>

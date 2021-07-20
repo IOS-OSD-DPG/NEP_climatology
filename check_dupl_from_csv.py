@@ -1,130 +1,219 @@
-import glob
+# Check for duplicates in data for climatology
+
 import pandas as pd
 import numpy as np
 from tqdm import trange
+from copy import deepcopy
 
-
-def similar_lat(r1, r2, offset=0.2):
-    return abs(r1['Latitude'] - r2['Latitude']) < offset
-
-
-def similar_lon(r1, r2, offset=0.2):
-    return abs(r1['Longitude'] - r2['Longitude']) < offset
-
-
-def similar_time(r1, r2, offset=1, offset_unit='h'):
-    # Start with offset of 1 hour
-    # Convert time string to pandas datetime
-    # offset_unit: 'D', 'h', 'm', 'sec', 'ns'
-    t1 = pd.to_datetime(r1['Date_string'])
-    t2 = pd.to_datetime(r2['Date_string'])
-    return abs(t1 - t2) < pd.Timedelta(offset, unit=offset_unit)
-
-
-extract_folder = '/home/hourstonh/Documents/climatology/data_extracts/'
-extracts = glob.glob(extract_folder + '*.csv', recursive=False)
-extracts.sort()
-
-colnames = ["Source_data_file_name", "Institute", "Cruise_number",
-            "Instrument_type", "Date_string", "Latitude",
-            "Longitude", "Quality_control_flag"]
-
-df_all = pd.DataFrame(columns=colnames)
-
-for f in extracts:
-    df_add = pd.read_csv(f)
-    df_all = pd.concat([df_all, df_add], ignore_index=True)
-
-# Remove unwanted column
-df_all = df_all.drop(columns=['Unnamed: 0'])
-
-df_all['Quality_control_flag'] = df_all['Quality_control_flag'].astype(int)
-
-# Write to new csv file for ease
-df_all_name = 'ALL_Profiles_Oxy_1991_2020.csv'
-df_all.to_csv(extract_folder + df_all_name)
 
 # Now with the one big csv file
-df_all2 = pd.read_csv(extract_folder + df_all_name)
-df_all2 = df_all2.drop(columns=['Unnamed: 0'])
+# df_all = pd.read_csv(extract_folder + df_all_name)
+df_all = pd.read_csv('C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\'
+                     'ALL_Profiles_Oxy_1991_2020.csv')
+df_all = df_all.drop(columns=['Unnamed: 0'])
 
+# Check for NaN values
+nan_ind = np.where(pd.isna(df_all.Date_string))
+np.where(pd.isna(df_all))
+# These are equal, so only these rows contain NaNs
+
+df_all.loc[nan_ind, ('Latitude', 'Longitude')]
+
+# Check MEDS file for NaN times
+fmeds = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\' \
+        'bo_extracts\\MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
+dmeds = pd.read_csv(fmeds)
+
+dmeds['Hour'] = dmeds.Time.astype(str).apply(lambda x: ('000' + x)[-4:][:-2])
+dmeds['Minute'] = dmeds.Time.astype(str).apply(lambda x: ('000' + x)[-4:][-2:])
+
+dmeds['Timestring'] = pd.to_datetime(
+    dmeds[['Year', 'Month', 'Day', 'Hour', 'Minute']]).dt.strftime(
+    '%Y%m%d%H%M%S')
+
+
+
+############################################
 # Find duplicates
-# Use the NODC flagging scheme to differentiate between exact and inexact duplicates?
 
-# 1 2 3 4 5 6 7 8 9
-# "accepted annual_sd_out density_inversion cruise seasonal_sd_out monthly_sd_out
-# annual+seasonal_sd_out anomaly_or_annual+monthly_sd_out seasonal+monthly_sd_out
-# annual+seasonal+monthly_sd_out" ;
+# Exact duplicates
+df_all['Exact_duplicate_row'] = df_all.duplicated(
+    subset=['Instrument_type', 'Date_string', 'Latitude', 'Longitude'])
 
-# 1: exact duplicate 2: CTD/BOT duplicate 3: inexact duplicate 4: ....
+# Accounting statistics
+print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == True).values]))
+print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == False).values]))
 
-df_copy = df_all2.copy()
+# edf: Exact duplicates flagged
+edf_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
+           'duplicates_flagged\\ALL_Profiles_Oxy_1991_2020_edf.csv'
 
-df_copy['Exact_duplicate_row'] = df_copy[
-    ['Instrument_type', 'Date_string', 'Latitude', 'Longitude']].duplicated()
+df_all.to_csv(edf_name)
 
 # How to specify to keep CTD data over BOT data regardless of order in the df?
 # Sort df by instrument type before running duplicated(); sort reverse order to
 # have CTD before BOT
-df_copy['CTD_BOT_duplicate_row'] = df_copy.sort_values(
-    by=['Instrument_type'], ascending=False)[
-    ['Date_string', 'Latitude', 'Longitude']].duplicated()
+# Check for exact duplicates between CTD and bottle data
+df_all['CTD_BOT_duplicate_row'] = df_all.sort_values(
+    by=['Instrument_type'], ascending=False).duplicated(
+    subset=['Date_string', 'Latitude', 'Longitude'])
 
 # Exclude exact duplicates from previous step by subsetting by the negation of
 # Exact_duplicate_row
-df_copy['CTD_BOT_duplicate_row'].iloc[
-    df_copy['Exact_duplicate_row'].values] = False
+# [mask, column_name]
+df_all.loc[df_all['Exact_duplicate_row'].values, 'CTD_BOT_duplicate_row'] = False
 
+# Accounting statistics
+print(len(df_all))
+print(len(df_all.iloc[df_all['Exact_duplicate_row'].values]))
+print(len(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values]))
+
+# CTD-BOT exact duplicates flagged
+cb_edf_name = edf_name.replace('edf', 'cb_edf')
+df_all.to_csv(cb_edf_name, index=False)
+
+############################################
 # For speeding up inexact duplicate checking
+cb_edf_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
+              'duplicates_flagged\\ALL_Profiles_Oxy_1991_2020_cb_edf.csv'
+
+df_all = pd.read_csv(cb_edf_name)
+
+# "|" represents the inclusive "or"
 subsetter = (
-        df_copy['Exact_duplicate_row'] & df_copy['CTD_BOT_duplicate_row']).values
+    ~(df_all['Exact_duplicate_row'] | df_all['CTD_BOT_duplicate_row'])).values
 
-
-print(len(df_copy.iloc[df_copy['Exact_duplicate_row'].values]))
-print(len(df_copy.iloc[df_copy['CTD_BOT_duplicate_row'].values]))
 # How many rows subsetter removes
 print(len(subsetter[subsetter]), len(subsetter[~subsetter]))
 
-# df_copy.iloc[(df_copy['Exact_duplicate_row'] == df_copy['CTD_BOT_duplicate_row']).values]
+# deepcopy to avoid memory problems
+df_copy = deepcopy(df_all.loc[subsetter, :])
 
-# df_copy2 = df_copy.iloc[subsetter]
+# Convert time to pandas datetime format
+df_copy['Time_pd'] = pd.to_datetime(df_copy.loc[:, 'Date_string'],
+                                    format='%Y%m%d%H%M%S')
 
-# Check for inexact duplicates
+# Initialize column for inexact duplicates
 df_copy['Inexact_duplicate_row'] = np.repeat(False, len(df_copy))
 
-df_copy.columns
+# Get array of indices of dataframe, since they are not linearly spaced
+# e.g., 1,2,3,5,6,7,11,...
+ind = df_copy.index.values
+
+# Set ranges (limits) for inexact duplicate checking
+latlon_lim = 0.01  # decimal degrees
+t_lim = pd.Timedelta(1, unit='h')  # hours
 
 # Iterate through dataframe
-for i in trange(len(df_copy.iloc[subsetter])):
-    for j in range(i, len(df_copy.iloc[subsetter])):
-        row1 = df_copy.iloc[subsetter].iloc[i]
-        row2 = df_copy.iloc[subsetter].iloc[j]
-        if similar_lat(row1, row2) and similar_lon(row1, row2) and similar_time(row1, row2):
-            # Flag row2
-            df_copy.iloc[subsetter].loc[j, 'Inexact_duplicate_row'] = True
+for i in trange(len(df_copy)):
+    # Create masks to check for values in between selected ranges
+    mask_lat = df_copy.loc[:, 'Latitude'].between(
+        df_copy.loc[ind[i], 'Latitude'] - latlon_lim,
+        df_copy.loc[ind[i], 'Latitude'] + latlon_lim,
+        inclusive=True)
+    mask_lon = df_copy.loc[:, 'Longitude'].between(
+        df_copy.loc[ind[i], 'Longitude'] - latlon_lim,
+        df_copy.loc[ind[i], 'Longitude'] + latlon_lim,
+        inclusive=True)
+    mask_time = df_copy.loc[:, 'Time_pd'].between(
+        df_copy.loc[ind[i], 'Time_pd'] - t_lim,
+        df_copy.loc[ind[i], 'Time_pd'] + t_lim,
+        inclusive=True)
 
-# Attempt with masks instead
-df_copy.columns
+    # Perform intersection of masks (set 'and')
+    mask_llt = mask_lat & mask_lon & mask_time
 
-# Create columns for min and max Date_string bounds for fuzzy duplicate checking
-Date_pd = pd.to_datetime(df_copy['Date_string'])
+    # Exclude the first True occurrence and flag its inexact duplicates
+    # Make sure that the change "sticks"
+    # Find index of first occurrence of "True"
+    # IndexError: index 0 is out of bounds for axis 0 with size 0 for row 50165
+    # Need to search for rows that have Time_pd == NaT (b/c of Date_string == NaN)
 
-df_copy['Date_string_min'] = (
-        Date_pd - pd.Timedelta(1, unit='h')).dt.strftime('%Y%m%d%H%M%S%z')
+    first_true_ind = mask_llt.loc[mask_llt == True].index[0]
+    mask_llt.loc[first_true_ind] = False
 
-df_copy['Date_string_max'] = (
-        Date_pd + pd.Timedelta(1, unit='h')).dt.strftime('%Y%m%d%H%M%S%z')
+    # print(ind[i], len(mask_llt.loc[(mask_llt == True).values]))
 
-df_copy['Latitude_min'] = df_copy['Latitude'] - 0.2
-df_copy['Latitude_max'] = df_copy['Latitude'] + 0.2
-df_copy['Longitude_min'] = df_copy['Longitude'] - 0.2
-df_copy['Longitude_max'] = df_copy['Longitude'] + 0.2
+    # Union intersect (set inclusive "or") with the "all" mask
+    if len(mask_llt.loc[(mask_llt == True).values]) > 0:
+        df_copy.Inexact_duplicate_row = df_copy.Inexact_duplicate_row | mask_llt
 
-# Create mask?
 
-#################
-mask = df_all[['Instrument_type', 'Date_string', 'Latitude', 'Longitude']].duplicated()
-mask = df_all['Date_string'].astype(str).str.startswith('199')
+# Iterate through dataframe to check validity of inexact duplicate checking
+# Partner index is the index of the row that other row(s) are flagged as a
+# duplicate of
+df_copy['Partner_index'] = np.repeat(-1, len(df_copy))
+for i in trange(len(df_copy)):
+    # Create masks to check for values in between selected ranges
+    mask_lat = df_copy.loc[:, 'Latitude'].between(
+        df_copy.loc[ind[i], 'Latitude'] - latlon_lim,
+        df_copy.loc[ind[i], 'Latitude'] + latlon_lim,
+        inclusive=True)
+    mask_lon = df_copy.loc[:, 'Longitude'].between(
+        df_copy.loc[ind[i], 'Longitude'] - latlon_lim,
+        df_copy.loc[ind[i], 'Longitude'] + latlon_lim,
+        inclusive=True)
+    mask_time = df_copy.loc[:, 'Time_pd'].between(
+        df_copy.loc[ind[i], 'Time_pd'] - t_lim,
+        df_copy.loc[ind[i], 'Time_pd'] + t_lim,
+        inclusive=True)
 
-df_all['Duplicate_row'] = np.zeros(len(df_all))
-df_all['Duplicate_row'].loc[mask, 'Duplicate_row'] = 1
+    # Perform intersection of masks (set 'and')
+    mask_llt = mask_lat & mask_lon & mask_time
+
+    # Exclude the first True occurrence and flag its inexact duplicates
+    # Make sure that the change "sticks"
+    # Find index of first occurrence of "True"
+    # IndexError: index 0 is out of bounds for axis 0 with size 0 for row 50165
+    # Need to search for rows that have Time_pd == NaT (b/c of Date_string == NaN)
+
+    # print(ind[i], len(mask_llt.loc[(mask_llt == True).values]))
+
+    if len(mask_llt.loc[(mask_llt == True).values]) > 1:
+        # Note down partner index?
+        first_true_ind = mask_llt.loc[mask_llt == True].index[0]
+        remainder_true_ind = mask_llt.loc[mask_llt == True].index[1:]
+        df_copy.loc[remainder_true_ind, 'Partner_index'] = first_true_ind
+        # Union intersect (set inclusive "or") with the "all" mask
+        df_copy.Inexact_duplicate_row = df_copy.Inexact_duplicate_row | mask_llt
+    else:
+        # Set non-duplicate row flag to False
+        # Don't need to intersect with the Inexact_duplicate_row column
+        # because there's nothing new to add
+        first_true_ind = mask_llt.loc[mask_llt == True].index[0]
+        mask_llt.loc[first_true_ind] = False
+
+# Accounting statistics
+print(len(df_copy.Inexact_duplicate_row))
+print(len(df_copy.Inexact_duplicate_row.iloc[df_copy.Inexact_duplicate_row.values]))
+
+# Remove column
+df_copy = df_copy.drop(columns='Time_pd')
+
+# ie_subs stands for inexact subset
+# pi stands for PARTNER INDEX (all duplicate rows are flagged including first occurrence
+# Will need to intersect these rows and the rows of the *cb_edr.csv dataframe
+df_copy_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
+               'duplicates_flagged\\ALL_Profiles_Oxy_1991_2020_ie_subs_001ll_pi.csv'
+
+df_copy.to_csv(df_copy_name)
+
+# Do validity checking to see whether inexact duplicates are actually duplicates
+# Check by visual inspection in Excel
+
+# Intersect the ie_subset dataframe with the rows that weren't part of the subset
+# Get inverse of subsetter
+df_copy_inv = df_all[~subsetter]
+
+# Add columns to df_copy_inv that are in df_copy
+df_copy_inv.insert(len(df_copy_inv.columns), 'Inexact_duplicate_row',
+                   np.repeat(False, len(df_copy_inv)))
+df_copy_inv.insert(len(df_copy_inv.columns), 'Partner_index',
+                   np.repeat(-1, len(df_copy_inv)))
+
+df_all_out = pd.concat([df_copy, df_copy_inv])
+
+df_all_out_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
+                  'duplicates_flagged\\ALL_Profiles_Oxy_1991_2020_ie_001ll_pi.csv'
+
+df_all_out.to_csv(df_all_out_name)

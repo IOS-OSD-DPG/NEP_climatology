@@ -1,0 +1,49 @@
+H. Hourston July 16, 2021
+
+Duplicates checking
+Accounting statistics
+#####################
+print(len(df_copy))
+83683
+
+print(len(df_copy.iloc[df_copy['Exact_duplicate_row'].values]))
+564
+
+# The following excludes exact duplicates already counted by 'Exact_duplicate_row'
+print(len(df_copy.iloc[df_copy['CTD_BOT_duplicate_row'].values]))
+12829
+
+###############
+Based off of the above statistics, subsetting non-duplicates for
+inexact duplicate checking yields:
+
+# How many rows subsetter removes
+print(len(subsetter[subsetter]), len(subsetter[~subsetter]))
+13393 70290
+
+So, inexact duplicate checking should cover 70290 rows.
+
+###############
+Inexact duplicate checking accounting statistics:
+
+LIMITS: 0.2 degrees for lat/lon and 1 hour for time.
+
+print(len(df_copy.Inexact_duplicate_row))
+70290
+print(len(df_copy.Inexact_duplicate_row.iloc[df_copy.Inexact_duplicate_row.values]))
+21233
+
+Hence, we are left with 49057 non-duplicate profiles.
+
+NEW LIMITS: 0.01 degrees for lat/lon and 1 hour for time.
+(in order to try to retain more data through this check)
+
+print(len(df_copy.Inexact_duplicate_row))
+70290
+print(len(df_copy.Inexact_duplicate_row.iloc[df_copy.Inexact_duplicate_row.values]))
+7580
+
+Hence, we are left with 70290-7580=62710 non-duplicate rows (profiles).
+
+There are 13959 total duplicates including the first occurrence of each duplicate.
+13959-7580=6379 < 7580, so there are sometimes multiple duplicates for a certain row.

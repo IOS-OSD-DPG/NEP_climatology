@@ -9,22 +9,23 @@ from os.path import basename
 import datetime
 
 # Find all oxygen data
-ios_path = '/home/hourstonh/Documents/climatology/data/IOS_CIOOS/'
+# ios_path = '/home/hourstonh/Documents/climatology/data/IOS_CIOOS/'
+ios_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\IOS_CIOOS\\'
 ios_files = glob.glob(ios_path + '*Oxy*.nc', recursive=False)
 ios_files.sort()
 
-# nodc_nocad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\Oxy_WOD_May2021_extracts\\'
-nodc_nocad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/Oxy_WOD_May2021_extracts/'
+nodc_nocad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\Oxy_WOD_May2021_extracts\\'
+# nodc_nocad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/Oxy_WOD_May2021_extracts/'
 nodc_nocad_files = glob.glob(nodc_nocad_path + '*.nc', recursive=False)
 nodc_nocad_files.sort()
 
-# nodc_cad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\WOD_July_CDN_nonIOS_extracts\\'
-nodc_cad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/WOD_July_CDN_nonIOS_extracts/'
+nodc_cad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\WOD_July_CDN_nonIOS_extracts\\'
+# nodc_cad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/WOD_July_CDN_nonIOS_extracts/'
 nodc_cad_files = glob.glob(nodc_cad_path + 'Oxy*.nc', recursive=False)
 nodc_cad_files.sort()
 
 meds_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\bo_extracts\\'
-meds_files = glob.glob(meds_path + '*DOXY*.csv', recursive=False)
+meds_files = glob.glob(meds_path + '*DOXY*source.csv', recursive=False)
 meds_files.sort()
 
 
@@ -45,14 +46,15 @@ for i, f in enumerate(ios_files):
     # Get unique profile indices to allow filtering through "row" dimension
     indices = np.unique(ios_data.profile.data, return_index=True)[1]
     
-    ios_fname_array = np.repeat(basename(ios_files[0]), len(indices))
+    ios_fname_array = np.repeat(basename(f), len(indices))
     ios_institute_array = np.repeat(ios_data.institution, len(indices))
     
-    if 'CTD' in ios_files[0]:
+    if 'CTD' in f:
         inst = 'CTD'
-    elif 'BOT' in ios_files[0]:
+    elif 'BOT' in f:
         inst = 'BOT'
-        
+
+    print(inst)
     ios_instrument_type_array = np.repeat(inst, len(indices))
     
     # Time strings: yyyymmddhhmmsszzz; slow to run
@@ -75,7 +77,8 @@ for i, f in enumerate(ios_files):
     ios_df = pd.concat([ios_df, ios_df_add])
 
 
-ios_df_name = '/home/hourstonh/Documents/climatology/data_extracts/IOS_Profiles_Oxy_1991_2020.csv'
+ios_df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\IOS_Profiles_Oxy_1991_2020.csv'
+# ios_df_name = '/home/hourstonh/Documents/climatology/data_extracts/IOS_Profiles_Oxy_1991_2020.csv'
 ios_df.to_csv(ios_df_name)
 
 # Flag duplicates in the dataframe
@@ -101,16 +104,16 @@ def nodc_to_common_csv(nodc_files, sourcetype):
         
         # Casts is the dim counting the number of profiles
         nodc_nocad_fname_array = np.repeat(
-            basename(nodc_nocad_files[0]), len(nodc_nocad_data.casts.data))
+            basename(f), len(nodc_nocad_data.casts.data))
         
         # Make array of institute name
         nodc_nocad_institute_array = np.repeat(
             nodc_nocad_data.institution, len(nodc_nocad_data.casts.data))
         
         # Get instrument type from file name
-        if 'CTD' in nodc_nocad_files[0]:
+        if 'CTD' in f:
             inst = 'CTD'
-        elif 'OSD' in nodc_nocad_files[0]:
+        elif 'OSD' in f:
             inst = 'BOT'
         
         nodc_nocad_instrument_array = np.repeat(inst, len(nodc_nocad_data.casts.data))
@@ -140,17 +143,18 @@ def nodc_to_common_csv(nodc_files, sourcetype):
     print(min(nodc_df['Date_string']), max(nodc_df['Date_string']))
     
     # Export to csv file
-    output_folder = '/home/hourstonh/Documents/climatology/data_extracts/'
+    # output_folder = '/home/hourstonh/Documents/climatology/data_extracts/'
+    output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\'
     nodc_name = 'NODC_{}_Profiles_Oxy_1991_2020.csv'.format(sourcetype)
     nodc_df.to_csv(output_folder + nodc_name)
     
-    # Flag duplicate rows in the dataframe
-    nodc_df_edr = nodc_df.copy()
-    nodc_df_edr['Duplicate_row'] = nodc_df.duplicated()
-    
-    # dr stands for duplicate rows
-    nodc_nocad_edr_name = nodc_name.replace('.', '_dr.')
-    nodc_df_edr.to_csv(output_folder + nodc_nocad_edr_name)
+    # # Flag duplicate rows in the dataframe
+    # nodc_df_edr = nodc_df.copy()
+    # nodc_df_edr['Duplicate_row'] = nodc_df.duplicated()
+    #
+    # # dr stands for duplicate rows
+    # nodc_nocad_edr_name = nodc_name.replace('.', '_dr.')
+    # nodc_df_edr.to_csv(output_folder + nodc_nocad_edr_name)
     
     return
 
@@ -183,17 +187,26 @@ elif 'BO' in meds_files[0]:
 meds_instrument_array = np.repeat(inst, len(unique))
 
 # Time string data
-meds_data['Hour'] = meds_data.Time.astype(str).apply(lambda x: x[:-2])
-meds_data['Minute'] = meds_data.Time.astype(str).apply(lambda x: x[-2:])
+meds_data['Hour'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-4:][:-2])
+meds_data['Minute'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-4:][-2:])
+
+# meds_data['Hour'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[:-2])
+# meds_data['Minute'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-2:])
+
+
+np.where(pd.isnull(meds_data.Hour))
+np.where(pd.isnull(meds_data.Minute))
 
 meds_data['Timestring'] = pd.to_datetime(
     meds_data[['Year', 'Month', 'Day', 'Hour', 'Minute']]).dt.strftime(
     '%Y%m%d%H%M%S%z')
 
-meds_data['Time_pd'] = pd.to_datetime(
-    meds_data[['Year', 'Month', 'Day', 'Hour', 'Minute']])
+np.where(pd.isnull(meds_data.Timestring))
 
-print(min(meds_data['Time_pd']), max(meds_data['Time_pd']))
+# meds_data['Time_pd'] = pd.to_datetime(
+#     meds_data[['Year', 'Month', 'Day', 'Hour', 'Minute']])
+#
+# print(min(meds_data['Time_pd']), max(meds_data['Time_pd']))
 
 # # DataFrame columns
 # df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
@@ -214,6 +227,8 @@ meds_df_add = pd.DataFrame(
 
 meds_df = pd.concat([meds_df, meds_df_add])
 
+np.where(pd.isna(meds_df))
+
 output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\'
 
 meds_csv_name = 'MEDS_Profiles_Oxy_1991_1995.csv'
@@ -228,3 +243,30 @@ meds_df_edr['Duplicate_row'] = meds_df.duplicated()
 meds_df_edr_name = meds_csv_name.replace('.', '_dr.')
 
 meds_df_edr.to_csv(output_folder + meds_df_edr_name)
+
+
+### COMBINE ALL PROFILE DATA TABLES
+
+# extract_folder = '/home/hourstonh/Documents/climatology/data_extracts/'
+extract_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\'
+extracts = glob.glob(extract_folder + '*.csv', recursive=False)
+extracts.sort()
+
+colnames = ["Source_data_file_name", "Institute", "Cruise_number",
+            "Instrument_type", "Date_string", "Latitude",
+            "Longitude", "Quality_control_flag"]
+
+df_all = pd.DataFrame(columns=colnames)
+
+for f in extracts:
+    df_add = pd.read_csv(f)
+    df_all = pd.concat([df_all, df_add], ignore_index=True)
+
+# Remove unwanted column
+df_all = df_all.drop(columns=['Unnamed: 0'])
+
+df_all['Quality_control_flag'] = df_all['Quality_control_flag'].astype(int)
+
+# Write to new csv file for ease
+df_all_name = 'ALL_Profiles_Oxy_1991_2020.csv'
+df_all.to_csv(extract_folder + df_all_name)

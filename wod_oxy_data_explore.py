@@ -66,7 +66,7 @@ def wod_map_dist(ncdata, output_folder, instrument, left_lon, bot_lat, right_lon
 
 
 def wod_time_scatter(nclist, instrument, var, output_folder):
-    # ncsum: the sum of nc file data; a list containing netCDF data objects
+    # nclist: list of netcdf file paths
     # Make scatter plot of time stamps of all unique profiles
 
     szn_names = ['Winter', 'Spring', 'Summer', 'Fall']
@@ -184,6 +184,8 @@ def wod_runOSD():
 
     # Make scatter plots of number of bottles vs time
     # wod_time_scatter(nclist, 'OSD', 'oxygen')
+
+    # Comment the for loop out if not doing depth scatter
     for i in trange(len(osd)):
         data = open_dataset(indir + osd[i])
     
