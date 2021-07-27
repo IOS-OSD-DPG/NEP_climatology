@@ -32,7 +32,6 @@ dmeds['Timestring'] = pd.to_datetime(
     '%Y%m%d%H%M%S')
 
 
-
 ############################################
 # Find duplicates
 
@@ -104,7 +103,7 @@ ind = df_copy.index.values
 latlon_lim = 0.01  # decimal degrees
 t_lim = pd.Timedelta(1, unit='h')  # hours
 
-# Iterate through dataframe
+# Iterate through dataframe -- Used this loop or next one??
 for i in trange(len(df_copy)):
     # Create masks to check for values in between selected ranges
     mask_lat = df_copy.loc[:, 'Latitude'].between(
@@ -158,8 +157,12 @@ for i in trange(len(df_copy)):
         df_copy.loc[ind[i], 'Time_pd'] + t_lim,
         inclusive=True)
 
+    # Mask to check for same instrument
+    instrument_type = df_copy.loc[ind[i], 'Instrument_type']
+    mask_inst = df_copy.loc[:, 'Instrument_type'] == instrument_type
+
     # Perform intersection of masks (set 'and')
-    mask_llt = mask_lat & mask_lon & mask_time
+    mask_llt = mask_lat & mask_lon & mask_time & mask_inst
 
     # Exclude the first True occurrence and flag its inexact duplicates
     # Make sure that the change "sticks"
@@ -186,6 +189,8 @@ for i in trange(len(df_copy)):
 # Accounting statistics
 print(len(df_copy.Inexact_duplicate_row))
 print(len(df_copy.Inexact_duplicate_row.iloc[df_copy.Inexact_duplicate_row.values]))
+# Print the number of non-first occurrences of nonexact duplicates
+print(len(df_copy.iloc[(df_copy.Partner_index != -1).values]))
 
 # Remove column
 df_copy = df_copy.drop(columns='Time_pd')
@@ -217,3 +222,5 @@ df_all_out_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extrac
                   'duplicates_flagged\\ALL_Profiles_Oxy_1991_2020_ie_001ll_pi.csv'
 
 df_all_out.to_csv(df_all_out_name)
+
+##################################

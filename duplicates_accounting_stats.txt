@@ -3,6 +3,110 @@ H. Hourston July 16, 2021
 Duplicates checking
 Accounting statistics
 #####################
+This section is new (July 26, 2021).
+I had accidentally included NODC CTD oxygen data which we had decided not to use
+over concerns about sensor errors and no calibration against titration data.
+
+print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == True).values]))
+print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == False).values]))
+106
+71716
+len(df_all)
+71822
+
+106 exact duplicate rows out of 71822 rows (profiles).
+
+Proceed to CTD-bottle duplicate checking:
+
+print(len(df_all))
+print(len(df_all.iloc[df_all['Exact_duplicate_row'].values]))
+print(len(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values]))
+71822
+106
+12195
+
+71822-106-12195=59521 rows that are not exact duplicates or first occurrences
+of exact duplicates. We will do inexact duplicate checking on these 59521 rows.
+
+print(len(df_copy.Inexact_duplicate_row))
+print(len(df_copy.Inexact_duplicate_row.iloc[df_copy.Inexact_duplicate_row.values]))
+59521
+3432
+
+# Print the number of non-first occurrences of nonexact duplicates
+print(len(df_copy.iloc[(df_copy.Partner_index != -1).values]))
+2245
+
+So there are 2245 inexact duplicate rows. 59521-2245=57276 unique rows (profiles).
+
+We will do another round of inexact duplicate checking on the rows flagged by the
+first inexact duplicate check. For this second check, we will compare the raw
+profile data from the source data files.
+
+print(len(df_subset.loc[(df_subset.Inexact_duplicate_check2 == True).values]))
+1
+
+One actual inexact duplicate row/profile, but it contains only nans:
+
+df_subset.loc[(df_subset.Inexact_duplicate_check2 == True).values].Latitude
+3339   NaN
+Name: Latitude, dtype: float64
+
+df_subset.loc[(df_subset.Inexact_duplicate_check2 == True).values].Longitude
+3339   NaN
+Name: Longitude, dtype: float64
+
+df_subset.loc[(df_subset.Inexact_duplicate_check2 == True).values].Date_string
+3339   NaN
+Name: Date_string, dtype: float64
+
+df_subset.loc[(df_subset.Inexact_duplicate_check2 == True).values].Institute
+3339    NaN
+Name: Institute, dtype: object
+
+#####################
+This section is OLD (July 22, 2021).
+I had mistakes in the profile data table latitude and longitude:
+- MEDS longitude data *(-1)
+- IOS lat and lon data switched
+
+print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == True).values]))
+print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == False).values]))
+578
+83105
+len(df_all)
+83683
+
+So, there are 578 exact duplicate rows out of 83105 total rows.
+83105 rows will move to the CTD-bottle duplicate checking:
+
+print(len(df_all))
+83683
+print(len(df_all.iloc[df_all['Exact_duplicate_row'].values]))
+578
+print(len(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values]))
+12843
+
+So, 83683 - 578 - 12843 = 70262 rows that will move to the inexact duplicate checking.
+This number is comparable to the number of rows from the earlier wrong check of 70290 rows.
+No inexact duplicates before row 5844.
+
+print(len(df_copy.Inexact_duplicate_row))
+print(len(df_copy.Inexact_duplicate_row.iloc[df_copy.Inexact_duplicate_row.values]))
+print(len(df_copy.iloc[(df_copy.Partner_index != -1).values]))
+70262
+9013  #18694 without checking same instrument
+5116  #10207 without checking same instrument
+
+The Partner_index equals -1 for non-duplicates, including first occurrences of inexact
+duplicate rows. For inexact duplicate rows that are not the first occurrence, the
+Partner_index equals the row number of its first occurrence (its "partner").
+So, there are 10207 duplicate rows, excluding the first occurrences. This leaves
+70262 - 10207 = 60055 non-duplicate rows.
+
+This is less than from the first wrong check value of 62710 non-duplicate rows.
+
+##################### WRONG and old
 print(len(df_copy))
 83683
 

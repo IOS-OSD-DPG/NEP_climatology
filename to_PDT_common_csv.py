@@ -16,12 +16,12 @@ ios_files.sort()
 
 nodc_nocad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\Oxy_WOD_May2021_extracts\\'
 # nodc_nocad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/Oxy_WOD_May2021_extracts/'
-nodc_nocad_files = glob.glob(nodc_nocad_path + '*.nc', recursive=False)
+nodc_nocad_files = glob.glob(nodc_nocad_path + 'Oxy*OSD.nc', recursive=False)
 nodc_nocad_files.sort()
 
 nodc_cad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\WOD_July_CDN_nonIOS_extracts\\'
 # nodc_cad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/WOD_July_CDN_nonIOS_extracts/'
-nodc_cad_files = glob.glob(nodc_cad_path + 'Oxy*.nc', recursive=False)
+nodc_cad_files = glob.glob(nodc_cad_path + 'Oxy*OSD.nc', recursive=False)
 nodc_cad_files.sort()
 
 meds_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\bo_extracts\\'
@@ -35,6 +35,7 @@ df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
            "Longitude", "Quality_control_flag"]
 
 
+# Initialize dataframe
 ios_df = pd.DataFrame(columns=df_cols)
 
 
@@ -58,7 +59,7 @@ for i, f in enumerate(ios_files):
     ios_instrument_type_array = np.repeat(inst, len(indices))
     
     # Time strings: yyyymmddhhmmsszzz; slow to run
-    ios_time_strings = pd.to_datetime(ios_data.time.data).strftime('%Y%m%d%H%M%S%z')
+    ios_time_strings = pd.to_datetime(ios_data.time.data).strftime('%Y%m%d%H%M%S%')
     
     # QC flags: good data by default, according to Germaine
     ios_flags = np.ones(len(indices))
@@ -70,8 +71,8 @@ for i, f in enumerate(ios_files):
                        ios_data.mission_id.data[indices],
                        ios_instrument_type_array,
                        ios_time_strings[indices],
-                       ios_data.longitude.data[indices],
                        ios_data.latitude.data[indices],
+                       ios_data.longitude.data[indices],
                        ios_flags]).transpose(), columns=df_cols)
     
     ios_df = pd.concat([ios_df, ios_df_add])
@@ -111,9 +112,9 @@ def nodc_to_common_csv(nodc_files, sourcetype):
             nodc_nocad_data.institution, len(nodc_nocad_data.casts.data))
         
         # Get instrument type from file name
-        if 'CTD' in f:
-            inst = 'CTD'
-        elif 'OSD' in f:
+        # if 'CTD' in f:
+        #     inst = 'CTD'
+        if 'OSD' in f:
             inst = 'BOT'
         
         nodc_nocad_instrument_array = np.repeat(inst, len(nodc_nocad_data.casts.data))
@@ -163,6 +164,7 @@ nodc_to_common_csv(nodc_nocad_files, sourcetype='noCAD')
 nodc_to_common_csv(nodc_cad_files, sourcetype='CAD')
 
 
+#####################
 ##### MEDS Data #####
 
 # MEDS data: initialize empty dataframe
@@ -199,7 +201,7 @@ np.where(pd.isnull(meds_data.Minute))
 
 meds_data['Timestring'] = pd.to_datetime(
     meds_data[['Year', 'Month', 'Day', 'Hour', 'Minute']]).dt.strftime(
-    '%Y%m%d%H%M%S%z')
+    '%Y%m%d%H%M%S')
 
 np.where(pd.isnull(meds_data.Timestring))
 
@@ -213,6 +215,7 @@ np.where(pd.isnull(meds_data.Timestring))
 #            "Instrument_type", "Date_string", "Latitude",
 #            "Longitude", "Quality_control_flag"]
 
+# Need to convert MEDS longitude from positive towards West to positive towards East
 meds_df_add = pd.DataFrame(
     data=np.array([meds_fname_array,
                    meds_data.loc[:, 'SourceID'][unique],
@@ -220,7 +223,7 @@ meds_df_add = pd.DataFrame(
                    meds_instrument_array,
                    meds_data.loc[:, 'Timestring'][unique],
                    meds_data.loc[:, 'Lat'][unique],
-                   meds_data.loc[:, 'Lon'][unique],
+                   -meds_data.loc[:, 'Lon'][unique],
                    meds_data.loc[:, 'PP_flag'][unique]]).transpose(),
     columns=df_cols
 )
@@ -245,6 +248,7 @@ meds_df_edr_name = meds_csv_name.replace('.', '_dr.')
 meds_df_edr.to_csv(output_folder + meds_df_edr_name)
 
 
+###################################
 ### COMBINE ALL PROFILE DATA TABLES
 
 # extract_folder = '/home/hourstonh/Documents/climatology/data_extracts/'
