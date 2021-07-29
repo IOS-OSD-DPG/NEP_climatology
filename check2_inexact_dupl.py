@@ -177,7 +177,7 @@ def prep_pdt():
 
 
 def get_filenames_dict():
-    IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\IOS_CIOOS\\'
+    IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\IOS_CIOOS\\'
     IOS_files = glob.glob(IOS_dir + 'IOS_BOT_Profiles_Oxy*.nc', recursive=False)
     IOS_files += glob.glob(IOS_dir + 'IOS_CTD_Profiles_Oxy*.nc', recursive=False)
     IOS_files.sort()
@@ -188,20 +188,20 @@ def get_filenames_dict():
     #     ios_fname_dict.update({basename(f): f})
 
     # Import WOD data
-    WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+    WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
                     'WOD_extracts\\Oxy_WOD_May2021_extracts\\'
     WOD_nocad_files = glob.glob(WOD_nocad_dir + 'Oxy*OSD.nc', recursive=False)
     WOD_nocad_files.sort()
 
     # Returns no files since there are no Oxy OSD data
-    WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+    WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
                   'WOD_extracts\\WOD_July_CDN_nonIOS_extracts\\'
     WOD_cad_files = glob.glob(WOD_cad_dir + 'Oxy*OSD.nc', recursive=False)
     WOD_cad_files.sort()
 
     # Import MEDS data
-    MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\' \
-               'bo_extracts\\'
+    MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+               'meds_data_extracts\\bo_extracts\\'
     MEDS_files = glob.glob(MEDS_dir + '*.csv', recursive=False)
     MEDS_files.sort()
 
