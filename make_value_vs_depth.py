@@ -12,7 +12,7 @@ from gsw import z_from_p
 
 
 # Start with IOS data
-def ios_to_vvd0(ncdata):
+def ios_to_vvd0(ncdata, instrument='BOT'):
     # Get index of first measurement of each profile
     # indexer = np.unique(ncdata.profile.data, return_index=True)[1]
 
@@ -20,19 +20,20 @@ def ios_to_vvd0(ncdata):
     df_out = pd.DataFrame()
 
     df_out['Cruise_number'] = ncdata.mission_id.data
+    df_out['Instrument_type'] = np.repeat(instrument, len(df_out))  # To remove later
     df_out['Date_string'] = pd.to_datetime(ncdata.time.data).strftime('%Y%m%d%H%M%S')
     df_out['Latitude'] = ncdata.latitude.data
     df_out['Longitude'] = ncdata.longitude.data
     df_out['Depth_m'] = ncdata.depth.data
-    df_out['Depth_flag'] = np.ones(len(ncdata.row), dtype=int)
+    df_out['Depth_flag'] = np.ones(len(ncdata.row), dtype=int)  # To remove later
     df_out['Value'] = ncdata.DOXMZZ01.data
-    df_out['Source_flag'] = np.ones(len(ncdata.row), dtype=int)
+    df_out['Source_flag'] = np.ones(len(ncdata.row), dtype=int)  # To remove later
 
     return df_out
 
 
 # NODC data
-def nodc_to_vvd0(ncdata):
+def nodc_to_vvd0(ncdata, instrument='BOT'):
     # Transfer NODC data to value vs depth format
     # Add duplicate flags at a later time
 
@@ -68,6 +69,7 @@ def nodc_to_vvd0(ncdata):
 
     # Write arrays to initialized dataframe
     df_out['Cruise_number'] = cruise_number
+    df_out['Instrument_type'] = np.repeat(instrument, len(df_out))  # To remove later
     df_out['Date_string'] = date_string
     df_out['Latitude'] = latitude
     df_out['Longitude'] = longitude
@@ -226,7 +228,7 @@ def meds_to_vvd(df_meds, df_pdt):
     return df_out
 
 
-def meds_to_vvd0(df_meds):
+def meds_to_vvd0(df_meds, instrument='BOT'):
     # Just convert to value-vs-depth format without adding duplicate flags
     # Add duplicate flags at a later step
 
@@ -253,6 +255,7 @@ def meds_to_vvd0(df_meds):
 
     for i in trange(len(df_meds)):
         dict_list.append({'Cruise_number': df_meds.loc[i, 'CruiseID'],
+                          'Instrument_type': instrument,  # To remove later
                           'Date_string': df_meds.loc[i, 'Date_string'],
                           'Latitude': df_meds.loc[i, 'Lat'],
                           'Longitude': df_meds.loc[i, 'Lon'],
@@ -307,7 +310,7 @@ def get_pdt_df():
 
 ##################################
 # Import all data; no args to pass
-fname_dict = get_filenames_dict()
+# fname_dict = get_filenames_dict()
 
 pdt = get_pdt_df()
 
@@ -320,10 +323,6 @@ pdt = get_pdt_df()
 # for efficiency
 # df_pdt_subset = deepcopy(
 #     df_pdt.loc[df_pdt.Exact_duplicate_row | df_pdt.CTD_BOT_duplicate_row])
-
-# Name of output file
-df_val_dep_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
-                  'value_vs_depth_noqc.csv'
 
 # Initialize value vs depth dataframe
 vvd_cols = ['Date_string', 'Latitude', 'Longitude', 'Depth_m',
@@ -404,7 +403,7 @@ df_meds_vvd0 = meds_to_vvd0(meds_data)
 
 # Write output dataframe to csv file
 vvd0_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-            'value_vs_depth\\MEDS_Oxy_1991_1995_value_vs_depth_0.csv'
+            'value_vs_depth\\MEDS_BOT_Oxy_1991_1995_value_vs_depth_0.csv'
 
 df_meds_vvd0.to_csv(vvd0_name, index=False)
 
