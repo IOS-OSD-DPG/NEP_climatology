@@ -6,7 +6,6 @@ import pandas as pd
 import glob
 from xarray import open_dataset
 from copy import deepcopy
-from check2_inexact_dupl import get_filenames_dict, open_by_source
 from tqdm import trange
 from gsw import z_from_p
 
@@ -18,6 +17,23 @@ def ios_to_vvd0(ncdata, instrument='BOT'):
 
     # Initialize empty dataframe
     df_out = pd.DataFrame()
+
+    # Add profile number as a column
+    unique = np.unique(ncdata.profile.data, return_index=True)[1]
+    df_out['Profile_number'] = np.zeros(len(ncdata.profile.data), dtype=int)
+
+    # print(len(unique), len(ncdata.mission_id.data))
+
+    num = 1
+    # Skip the first profile since its number is already zero
+    for j in range(1, len(unique) - 1):
+        df_out.loc[unique[j]:unique[j + 1], 'Profile_number'] = num
+        num += 1
+
+    # Don't forget to number the last profile!
+    df_out.loc[unique[-1]:, 'Profile_number'] = num
+
+    print('Total number of profiles:', num + 1)  # Started from zero
 
     df_out['Cruise_number'] = ncdata.mission_id.data
     df_out['Instrument_type'] = np.repeat(instrument, len(df_out))  # To remove later
@@ -33,12 +49,13 @@ def ios_to_vvd0(ncdata, instrument='BOT'):
 
 
 # NODC data
-def nodc_to_vvd0(ncdata, instrument='BOT'):
+def nodc_to_vvd0(ncdata, instrument='BOT', counter=0):
     # Transfer NODC data to value vs depth format
     # Add duplicate flags at a later time
 
     df_out = pd.DataFrame()
 
+    profile_number = np.zeros(len(ncdata.Oxygen.data), dtype=int)
     cruise_number = np.repeat('XXXXXXXX', len(ncdata.Oxygen.data))
     date_string = np.repeat('YYYYMMDDhhmmss', len(ncdata.Oxygen.data))
     latitude = np.repeat(0., len(ncdata.Oxygen.data))
@@ -46,6 +63,9 @@ def nodc_to_vvd0(ncdata, instrument='BOT'):
 
     start_ind = 0
     for i in range(len(ncdata.Oxygen_row_size.data)):
+
+        profile_number[start_ind: start_ind + int(ncdata.Oxygen_row_size.data[i])
+                       ] = counter
 
         cruise_number[start_ind: start_ind + int(ncdata.Oxygen_row_size.data[i])
                       ] = ncdata.WOD_cruise_identifier.data[i].astype(str)
@@ -63,11 +83,13 @@ def nodc_to_vvd0(ncdata, instrument='BOT'):
 
         # print(longitude)
 
+        counter += 1
         start_ind = start_ind + int(ncdata.Oxygen_row_size.data[i])
 
         # print(start_ind)
 
     # Write arrays to initialized dataframe
+    df_out['Profile_number'] = profile_number
     df_out['Cruise_number'] = cruise_number
     df_out['Instrument_type'] = np.repeat(instrument, len(df_out))  # To remove later
     df_out['Date_string'] = date_string
@@ -78,7 +100,7 @@ def nodc_to_vvd0(ncdata, instrument='BOT'):
     df_out['Value'] = ncdata.Oxygen.data
     df_out['Source_flag'] = ncdata.Oxygen_WODflag.data
 
-    return df_out
+    return df_out, counter
 
 
 def nodc_to_vvd(ncdata, df_pdt):
@@ -232,6 +254,19 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
     # Just convert to value-vs-depth format without adding duplicate flags
     # Add duplicate flags at a later step
 
+    # Add profile number counter
+    df_meds['Profile_number'] = np.zeros(len(df_meds), dtype=int)
+
+    unique = np.unique(df_meds.RowNum, return_index=True)[1]
+
+    counter = 1
+    for i in range(1, len(unique) - 1):
+        df_meds.loc[unique[i]:unique[i + 1], 'Profile_number'] = counter
+        counter += 1
+
+    # Don't forget last profile
+    df_meds.loc[unique[-1]:, 'Profile_number'] = counter
+
     # Add pandas date string column to df_meds, as before
     df_meds['Hour'] = df_meds.Time.astype(str).apply(
         lambda x: ('000' + x)[-4:][:-2])
@@ -250,22 +285,17 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
         df_meds.loc[pressure_subsetter, 'Depth_m'].values,
         df_meds.loc[pressure_subsetter, 'Lat'].values)
 
-    # Initialize list of dictionaries
-    dict_list = []
-
-    for i in trange(len(df_meds)):
-        dict_list.append({'Cruise_number': df_meds.loc[i, 'CruiseID'],
-                          'Instrument_type': instrument,  # To remove later
-                          'Date_string': df_meds.loc[i, 'Date_string'],
-                          'Latitude': df_meds.loc[i, 'Lat'],
-                          'Longitude': df_meds.loc[i, 'Lon'],
-                          'Depth_m': df_meds.loc[i, 'Depth_m'],
-                          'Depth_flag': df_meds.loc[i, 'D_P_flag'],
-                          'Value': df_meds.loc[i, 'ProfParm'],
-                          'Source_flag': df_meds.loc[i, 'PP_flag']})
-
-    # Convert list to dataframe
-    df_out = pd.DataFrame.from_dict(dict_list)
+    # Write to dataframe to output
+    df_out = pd.DataFrame()
+    df_out['Profile_number'] = df_meds['Profile_number']
+    df_out['Instrument_type'] = np.repeat(instrument, len(df_out))  # To remove later
+    df_out['Date_string'] = df_meds['Date_string']
+    df_out['Latitude'] = df_meds['Lat']
+    df_out['Longitude'] = -df_meds['Lon']  # Convert to positive East
+    df_out['Depth_m'] = df_meds['Depth_m']
+    df_out['Depth_flag'] = df_meds['D_P_flag']
+    df_out['Value'] = df_meds['ProfParm']
+    df_out['Source_flag'] = df_meds['PP_flag']
 
     return df_out
 
@@ -324,11 +354,6 @@ pdt = get_pdt_df()
 # df_pdt_subset = deepcopy(
 #     df_pdt.loc[df_pdt.Exact_duplicate_row | df_pdt.CTD_BOT_duplicate_row])
 
-# Initialize value vs depth dataframe
-vvd_cols = ['Date_string', 'Latitude', 'Longitude', 'Depth_m',
-            'Value', 'Source_flag', 'Inexact_duplicate_flag']
-df_val_dep = pd.DataFrame(columns=vvd_cols)
-
 # # Iterate through files in dictionary
 # for key in fname_dict.keys():
 #     data = open_by_source(fname_dict[key])
@@ -358,16 +383,23 @@ ios_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format
 ios_ctd = glob.glob(ios_dir + 'IOS_CTD_Profiles_Oxy*.nc')
 ios_ctd.sort()
 
-ios_ctd_df = pd.DataFrame()
+# ios_ctd_df = pd.DataFrame()
 
+years = [(1991, 1995), (1995, 2000), (2000, 2005), (2005, 2010), (2010, 2015), (2015, 2020)]
 for i in trange(len(ios_ctd)):
-    df_add = ios_to_vvd0(open_dataset(ios_ctd[i]))
-    ios_ctd_df = pd.concat([ios_ctd_df, df_add])
+    df_add = ios_to_vvd0(open_dataset(ios_ctd[i]), instrument='CTD')
+    fname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+            'value_vs_depth\\IOS_CTD_Oxy_{}_{}_value_vs_depth_0.csv'.format(
+        years[i][0], years[i][1])
+
+    df_add.to_csv(fname, index=False)
+
+    # ios_ctd_df = pd.concat([ios_ctd_df, df_add])
 
 ios_ctd_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
                'value_vs_depth\\IOS_CTD_Oxy_1991_2020_value_vs_depth_0.csv'
 
-ios_ctd_df.to_csv(ios_ctd_name, index=False)
+# ios_ctd_df.to_csv(ios_ctd_name, index=False)
 
 ########################
 # NODC OSD data
@@ -380,10 +412,11 @@ osd_files.sort()
 
 osd_df = pd.DataFrame()
 
-data = open_dataset(osd_files[0])
-
+prof_count_old = 0
 for i in trange(len(osd_files)):
-    df_add = nodc_to_vvd0(open_dataset(osd_files[i]))
+    print(prof_count_old)
+    df_add, prof_count_new = nodc_to_vvd0(open_dataset(osd_files[i]), counter=prof_count_old)
+    prof_count_old = prof_count_new
     osd_df = pd.concat([osd_df, df_add])
 
 osd_df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
@@ -411,12 +444,47 @@ df_meds_vvd0.to_csv(vvd0_name, index=False)
 vvd_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
           'value_vs_depth\\'
 files = glob.glob(vvd_dir + '*.csv')
+files.sort()
 
 df_all = pd.DataFrame()
 for f in files:
     df_add = pd.read_csv(f)
     df_all = pd.concat([df_all, df_add])
 
+# Make sure columns do not contain mixed types
+vvd_cols = ['Date_string', 'Instrument_type', 'Latitude', 'Longitude', 'Depth_m',
+            'Depth_flag', 'Value', 'Source_flag']
+
+df_all['Profile_number'] = df_all['Profile_number'].astype(int)
+df_all['Date_string'] = df_all['Date_string'].astype(str)
+df_all['Instrument_type'] = df_all['Instrument_type'].astype(str)
+df_all['Latitude'] = df_all['Latitude'].astype(float)
+df_all['Longitude'] = df_all['Longitude'].astype(float)
+df_all['Depth_m'] = df_all['Depth_m'].astype(float)
+df_all['Depth_flag'] = df_all['Depth_flag'].astype(int)
+df_all['Value'] = df_all['Value'].astype(float)
+df_all['Source_flag'] = df_all['Source_flag'].astype(int)
+
 all_name = 'ALL_Oxy_1991_2020_value_vs_depth.csv'
 
 df_all.to_csv(vvd_dir + all_name, index=False)
+
+# df_all.shape
+# (18549636, 10)
+
+# Fix the index
+df_all = df_all.reset_index(drop=True)
+
+# TOO SLOW
+# Redo the profile numbers?
+df_all['All_profile_number'] = np.zeros(len(df_all), dtype=int)
+number_count = 0
+for i in trange(1, len(df_all)):
+    if df_all.loc[i, 'Profile_number'] != df_all.loc[i - 1, 'Profile_number']:
+        number_count += 1
+        df_all.loc[i, 'All_profile_number'] = number_count
+    else:
+        df_all.loc[i, 'All_profile_number'] = number_count
+
+# Remove the profile number column
+df_all = df_all.drop(columns='Profile_number')
