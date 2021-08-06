@@ -6,7 +6,6 @@ import pandas as pd
 import numpy as np
 import glob
 from os.path import basename
-import datetime
 
 # Find all oxygen data
 # ios_path = '/home/hourstonh/Documents/climatology/data/IOS_CIOOS/'
@@ -14,17 +13,28 @@ ios_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\IOS_CIOOS\\'
 ios_files = glob.glob(ios_path + '*Oxy*.nc', recursive=False)
 ios_files.sort()
 
-nodc_nocad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\Oxy_WOD_May2021_extracts\\'
+ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+              'SHuntington\\'
+# Get bot files
+ios_wp_files = glob.glob(ios_wp_path + '*.bot.nc', recursive=False)
+# Get ctd files
+ios_wp_files += glob.glob(ios_wp_path + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
+
+
+nodc_nocad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+                  'WOD_extracts\\Oxy_WOD_May2021_extracts\\'
 # nodc_nocad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/Oxy_WOD_May2021_extracts/'
 nodc_nocad_files = glob.glob(nodc_nocad_path + 'Oxy*OSD.nc', recursive=False)
 nodc_nocad_files.sort()
 
-nodc_cad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\WOD_July_CDN_nonIOS_extracts\\'
+nodc_cad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\' \
+                'WOD_July_CDN_nonIOS_extracts\\'
 # nodc_cad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/WOD_July_CDN_nonIOS_extracts/'
 nodc_cad_files = glob.glob(nodc_cad_path + 'Oxy*OSD.nc', recursive=False)
 nodc_cad_files.sort()
 
-meds_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\bo_extracts\\'
+meds_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\' \
+            'bo_extracts\\'
 meds_files = glob.glob(meds_path + '*DOXY*source.csv', recursive=False)
 meds_files.sort()
 
@@ -34,8 +44,8 @@ df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
            "Instrument_type", "Date_string", "Latitude",
            "Longitude", "Quality_control_flag"]
 
-
-# Initialize dataframe
+#####################################
+# Initialize dataframe for IOS data
 ios_df = pd.DataFrame(columns=df_cols)
 
 
@@ -91,6 +101,45 @@ ios_df_edr_name = '/home/hourstonh/Documents/climatology/data_extracts/IOS_Profi
 ios_df_edr.to_csv(ios_df_edr_name)
 
 
+################
+# IOS Water Properties files (ones missing from CIOOS download)
+
+# Initialize dataframe for IOS data
+ios_wp_df = pd.DataFrame(columns=df_cols)
+
+dict_list = []
+
+for i, f in enumerate(ios_wp_files):
+    print(i, f)
+    if 'bot' in f:
+        instrument_type = 'BOT'
+    elif 'ctd' in f:
+        instrument_type = 'CTD'
+    # Open file
+    ncdata = open_dataset(f)
+    # Initialize dataframe
+    # df_add = pd.DataFrame(
+    #     data=np.array([]).transpose(),
+    #     columns=df_cols)
+
+    # ios_wp_df = pd.concat([ios_wp_df, df_add])
+
+    dict_list.append({'Source_data_file_name': basename(f),
+                      'Institute': ncdata.institution,
+                      'Cruise_number': ncdata.mission_id.data,
+                      'Instrument_type': instrument_type,
+                      'Date_string': pd.to_datetime(ncdata.time.data).strftime('%Y%m%d%H%M%S'),
+                      'Latitude': ncdata.latitude.data,
+                      'Longitude': ncdata.longitude.data,
+                      'Quality_control_flag': 1})
+
+df_out = pd.DataFrame.from_dict(dict_list)
+
+outname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
+          'IOS_WP_Profiles_Oxy_1991_2020.csv'
+df_out.to_csv(outname, index=False)
+
+################
 ### NODC WOD ###
 def nodc_to_common_csv(nodc_files, sourcetype):
     colnames = ["Source_data_file_name", "Institute", "Cruise_number",

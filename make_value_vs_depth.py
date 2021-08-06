@@ -7,7 +7,8 @@ import glob
 from xarray import open_dataset
 from copy import deepcopy
 from tqdm import trange
-from gsw import z_from_p
+from gsw import z_from_p, p_from_z, CT_from_t, SA_from_SP
+from gsw.density import rho
 
 
 # Start with IOS data
@@ -44,6 +45,51 @@ def ios_to_vvd0(ncdata, instrument='BOT'):
     df_out['Depth_flag'] = np.ones(len(ncdata.row), dtype=int)  # To remove later
     df_out['Value'] = ncdata.DOXMZZ01.data
     df_out['Source_flag'] = np.ones(len(ncdata.row), dtype=int)  # To remove later
+
+    return df_out
+
+
+def ios_wp_to_vvd0(nclist):
+    # Put IOS Water Properties data to a value vs depth table
+
+    df_out = pd.DataFrame()
+
+    # Iterate through the list of netcdf file paths
+    for j, ncfile in enumerate(nclist):
+        # Get instrument type
+        if 'ctd' in ncfile:
+            instrument_type = 'CTD'
+        elif 'bot' in ncfile:
+            instrument_type = 'BOT'
+
+        # Open the netCDF file
+        ncdata = open_dataset(ncfile)
+
+        # Convert oxygen data to umol/kg if not already done
+        try:
+            oxygen = ncdata.DOXMZZ01.data
+        except AttributeError:
+            # Convert data from mL/L to umol/kg
+            print('Converting oxygen data from mL/L to umol/kg')
+            oxygen = mL_L_to_umol_kg(ncdata.DOXYZZ01)
+
+        # Initialize dataframe to concatenate to df_out
+        df_add = pd.DataFrame()
+        # Populate the dataframe
+        df_add['Profile_number'] = np.repeat(j, len(ncdata.depth.data))
+        df_add['Cruise_number'] = np.repeat(ncdata.mission_id.data, len(ncdata.depth.data))
+        df_add['Instrument_type'] = np.repeat(instrument_type, len(ncdata.depth.data))
+        df_add['Date_string'] = np.repeat(pd.to_datetime(ncdata.time.data).strftime('%Y%m%d%H%M%S'),
+                                          len(ncdata.depth.data))
+        df_add['Latitude'] = np.repeat(ncdata.latitude.data, len(ncdata.depth.data))
+        df_add['Longitude'] = np.repeat(ncdata.longitude.data, len(ncdata.depth.data))
+        df_add['Depth_m'] = ncdata.depth.data
+        df_add['Depth_flag'] = np.ones(len(ncdata.depth.data), dtype=int)
+        df_add['Value'] = oxygen
+        df_add['Source_flag'] = np.ones(len(ncdata.depth.data), dtype=int)
+
+        # Concatenate to df_out
+        df_out = pd.concat([df_out, df_add])
 
     return df_out
 
@@ -236,7 +282,7 @@ def meds_to_vvd(df_meds, df_pdt):
                           'Depth_m': df_meds.loc[i, 'Depth_m'],
                           'Depth_flag': df_meds.loc[i, 'D_P_flag'],
                           'Value': df_meds.loc[i, 'ProfParm'],
-                          'Source_flag': df_meds.loc[i, 'PP_flag'],
+                          'Source_flag': df_meds.loc[i, 'DOXY_flag'],
                           'Exact_duplicate_flag': ex_dup_flag,
                           'CTD_BOT_duplicate_flag': cb_dup_flag,
                           'Inexact_duplicate_flag': ie_dup_flag})
@@ -248,6 +294,46 @@ def meds_to_vvd(df_meds, df_pdt):
     df_out = pd.DataFrame.from_dict(dict_list)
 
     return df_out
+
+
+def mL_L_to_umol_kg(oxygen):
+    # Oxygen in mL/L
+    # Applies to some IOS Water Properties data
+
+    mol_to_umol = 1e6
+
+    # Molar mass of O2
+    mm_O2 = 2 * 15.9994  # g/mol
+
+    # Convert mL/L to L/L to kg/kg to g/kg to mol/kg to umol/kg
+    oxygen_out = oxygen * mm_O2 * mol_to_umol
+
+    return oxygen_out
+
+
+def mmol_m3_to_umol_kg(oxygen, prac_sal, temp, press, lat, lon):
+    # Oxygen in millimol/m^3
+    # Applies to MEDS oxygen data
+
+    mmol_to_umol = 1e3
+    m3_to_l = 1e3
+
+    # Convert pressure to SP: Sea pressure (absolute pressure minus 10.1325 dbar), dbar
+    SP = press - 10.1325
+
+    # Convert practical salinity to SA: Absolute salinity
+    SA = SA_from_SP(prac_sal, SP, lon, lat)
+
+    # Convert temperature to CT: Conservative Temperature (ITS-90), degrees C
+    CT = CT_from_t(SA, temp, SP)
+
+    # Calculate the in-situ density of seawater
+    insitu_density = rho(SA, CT, SP)
+
+    # Convert mmol/m^3 to umol/m^3 to umol/L to umol/kg
+    oxygen_out = oxygen * mmol_to_umol / m3_to_l * insitu_density
+
+    return oxygen_out
 
 
 def meds_to_vvd0(df_meds, instrument='BOT'):
@@ -285,6 +371,17 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
         df_meds.loc[pressure_subsetter, 'Depth_m'].values,
         df_meds.loc[pressure_subsetter, 'Lat'].values)
 
+    # Calculate pressure
+    df_meds['Press_dbar'] = df_meds['Depth/Press']
+    df_meds.loc[~pressure_subsetter, 'Press_dbar'] = p_from_z(
+        df_meds.loc[~pressure_subsetter, 'Depth_m'].values,
+        df_meds.loc[~pressure_subsetter, 'Lat'].values)
+
+    # Unit conversions for oxygen from millimol/m^3 to umol/kg########################
+    df_meds['Oxygen_umol'] = mmol_m3_to_umol_kg(df_meds['DOXY'], df_meds['PSAL'],
+                                                df_meds['TEMP'], df_meds['Press_dbar'],
+                                                df_meds['Lat'], df_meds['Lon'])
+
     # Write to dataframe to output
     df_out = pd.DataFrame()
     df_out['Profile_number'] = df_meds['Profile_number']
@@ -294,7 +391,7 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
     df_out['Longitude'] = -df_meds['Lon']  # Convert to positive East
     df_out['Depth_m'] = df_meds['Depth_m']
     df_out['Depth_flag'] = df_meds['D_P_flag']
-    df_out['Value'] = df_meds['ProfParm']
+    df_out['Value'] = df_meds['Oxygen_umol']
     df_out['Source_flag'] = df_meds['PP_flag']
 
     return df_out
@@ -401,6 +498,25 @@ ios_ctd_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 
 # ios_ctd_df.to_csv(ios_ctd_name, index=False)
 
+
+########################
+# IOS Water Properties data
+
+wp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\SHuntington\\'
+
+wp_list = glob.glob(wp_dir + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
+
+wp_list += glob.glob(wp_dir + '*.bot.nc', recursive=False)
+
+nc = open_dataset(wp_list[0])
+
+df = ios_wp_to_vvd0(wp_list)
+
+outname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
+          'IOS_WP_Oxy_1991_2020_value_vs_depth_0.csv'
+
+df.to_csv(outname, index=False)
+
 ########################
 # NODC OSD data
 
@@ -427,7 +543,7 @@ osd_df.to_csv(osd_df_name, index=False)
 ########################
 # Test out each function
 meds_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
-            'meds_data_extracts\\bo_extracts\\MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
+            'meds_data_extracts\\bo_extracts\\MEDS_19940804_19930816_BO_TSO_profiles_source.csv'
 
 meds_data = pd.read_csv(meds_file)
 

@@ -17,9 +17,9 @@ def open_by_source(full_path):
     # Open data file based on which data centre it came from
     # IOS and NODC files are netCDF
     # MEDS files are csv
-    if basename(full_path).startswith('IOS') or basename(full_path).startswith('Oxy'):
+    if full_path.endswith('.nc'):
         data = open_dataset(full_path)
-    elif basename(full_path).startswith('MEDS'):
+    elif full_path.endswith('.csv'):
         data = pd.read_csv(full_path)
     return data
 
@@ -56,6 +56,15 @@ def get_ios_profile_data(ncdata, cruise_number, time, lat, lon):
     return prof
 
 
+def get_ios_wp_profile_data(ncdata):
+    # Return the oxygen values
+    try:
+        prof = ncdata.DOXMZZ01.data
+    except AttributeError:
+        prof = ncdata.DOXYZZ01.data
+    return prof
+
+
 def get_nodc_profile_data(ncdata, cruise_number, time, lat, lon):
     # Data are in xarray format
     # Extract profile
@@ -63,13 +72,10 @@ def get_nodc_profile_data(ncdata, cruise_number, time, lat, lon):
     # Need to strip 'b' and single quotes from WOD_cruise_identifier.data
     cruise_subsetter = np.where(
         ncdata.WOD_cruise_identifier.data.astype(str) == cruise_number.strip("b'"))[0]
-    print('cruise')
     time_subsetter = np.where(
         pd.to_datetime(ncdata.time.data).strftime(
             '%Y-%m-%d %H:%M:%S') == time.strftime('%Y-%m-%d %H:%M:%S'))[0]
-    print(time_subsetter)
     lat_subsetter = np.where(ncdata.lat.data == lat)[0]
-    print('lat')
     lon_subsetter = np.where(ncdata.lon.data == lon)[0]
 
     # Intersect the subsetters to find the profile matching
@@ -78,11 +84,7 @@ def get_nodc_profile_data(ncdata, cruise_number, time, lat, lon):
         np.intersect1d, (cruise_subsetter, time_subsetter, lat_subsetter,
                          lon_subsetter))
 
-    print(len(prof_subsetter))
-
     prof_row_ind = ncdata.Oxygen_row_size.data[prof_subsetter].astype(int)
-
-    print(prof_row_ind)
 
     # Don't need to extract the profile start indices
     # For subsetting profiles in flat Oxygen array
@@ -128,9 +130,13 @@ def get_meds_profile_data(df, cruise_number, time, lat, lon):
     return prof
 
 
-def get_profile_data(data, filename, cruise_number, time, lat, lon):
+def get_profile_data(data, filename, cruise_number=None, time=None,
+                     lat=None, lon=None):
     if 'IOS' in filename:
         prof = get_ios_profile_data(data, cruise_number, time, lat, lon)
+    elif filename.endswith('.bot.nc') or filename.endswith('.ctd.nc'):
+        # IOS Water Properties data
+        prof = get_ios_wp_profile_data(data)
     elif filename.startswith('Oxy'):
         # NODC WOD data
         prof = get_nodc_profile_data(data, cruise_number, time, lat, lon)
@@ -187,6 +193,13 @@ def get_filenames_dict():
     # for f in IOS_files:
     #     ios_fname_dict.update({basename(f): f})
 
+    ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+                  'SHuntington\\'
+    # Get bot files
+    ios_wp_files = glob.glob(ios_wp_path + '*.bot.nc', recursive=False)
+    # Get ctd files
+    ios_wp_files += glob.glob(ios_wp_path + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
+
     # Import WOD data
     WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
                     'WOD_extracts\\Oxy_WOD_May2021_extracts\\'
@@ -205,7 +218,7 @@ def get_filenames_dict():
     MEDS_files = glob.glob(MEDS_dir + '*.csv', recursive=False)
     MEDS_files.sort()
 
-    all_files = IOS_files + WOD_nocad_files + WOD_cad_files + MEDS_files
+    all_files = IOS_files + ios_wp_files + WOD_nocad_files + WOD_cad_files + MEDS_files
 
     all_fname_dict = {}
     for f in all_files:
@@ -237,7 +250,7 @@ def run_check2():
     df_subset = df.loc[subsetter]
 
     # Iterate through df_subset
-    for i in trange(3339, len(df_subset)):  # 200
+    for i in trange(len(df_subset)):  # 200
         # Check that the row is not the first occurrence of an inexact duplicate
         if df_subset.Partner_index.iloc[i] != -1:
             # np.where returns a tuple; tuple's first element is an array containing the index
@@ -302,11 +315,13 @@ def run_check2():
 
             # Proceed to next iteration
 
-
     # Print basic accounting statistics
-    print(len(df_subset))
-    print(len(df_subset.loc[(df_subset.Inexact_duplicate_check2 == True).values]))
-    print(len(df_subset.loc[(df_subset.Inexact_duplicate_check2 != True).values]))
+    print('Accounting statistics:')
+    print('Subset length', len(df_subset))
+    print('Number of verified inexact duplicates:',
+          len(df_subset.loc[(df_subset.Inexact_duplicate_check2 == True).values]))
+    print('Number of inexact duplicates that failed the check:',
+          len(df_subset.loc[(df_subset.Inexact_duplicate_check2 != True).values]))
 
     # Merge df and df_subset
     df_subset_inv = df.loc[~subsetter]
@@ -316,9 +331,10 @@ def run_check2():
     # Formatting df for export
     df_out = df_out.drop(columns='Time_pd')
 
-    df_out.iloc[:, 9] = df_out.iloc[:, 9].astype(bool)
-    df_out.iloc[:, 10] = df_out.iloc[:, 10].astype(bool)
-    df_out.iloc[:, 11] = df_out.iloc[:, 11].astype(bool)
+    # Convert boolean flags to strings
+    df_out.iloc[:, 9] = df_out.iloc[:, 9].astype(str)
+    df_out.iloc[:, 10] = df_out.iloc[:, 10].astype(str)
+    df_out.iloc[:, 11] = df_out.iloc[:, 11].astype(str)
 
     # Export file
     df_out_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
@@ -327,3 +343,10 @@ def run_check2():
 
     return
 
+
+run_check2()
+
+# f = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+#     'SHuntington\\WP_unique_CTD_forHana\\2018-106-0001.ctd.nc'
+#
+# data = open_dataset(f)

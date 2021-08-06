@@ -2,8 +2,68 @@ H. Hourston July 16, 2021
 
 Duplicates checking
 Accounting statistics
+
 #####################
-This section is new (July 26, 2021).
+This section in new (Aug 6, 2021)
+IOS WP CTD data had not been filtered to include only profiles having oxygen data. Now it is.
+
+print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == True).values]))
+print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == False).values]))
+106
+72303
+
+print(len(df_all))
+print(len(df_all.iloc[df_all['Exact_duplicate_row'].values]))
+print(len(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values]))
+72409
+106
+12183
+
+print(len(df_copy.Inexact_duplicate_row))
+60120
+print(len(df_copy.Inexact_duplicate_row.iloc[df_copy.Inexact_duplicate_row.values]))
+3659
+# Print the number of non-first occurrences of nonexact duplicates
+print(len(df_copy.iloc[(df_copy.Partner_index != -1).values]))
+2373
+
+Accounting statistics:
+Subset length 3719
+Number of verified inexact duplicates: 60
+Number of inexact duplicates that failed the check (i.e. aren't actually duplicates): 3659
+
+#####################
+This section is old (Aug 4, 2021).
+This run includes data from IOS Water Properties that was missing from the CIOOS download.
+5 bottle files and 738 ctd profile files make up the missing files.
+
+>print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == True).values]))
+106
+>print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == False).values]))
+72459
+>print(len(df_all))
+72565
+
+106 exact duplicates (identical instrument type, lat, lon, and date string). 72459 profiles
+pass to the next check:
+
+>print(len(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values]))
+12189
+
+72565-106-12189=60270 rows to check for inexact duplicates:
+
+# Accounting statistics
+print(len(df_copy.Inexact_duplicate_row))
+60270
+print(len(df_copy.Inexact_duplicate_row.iloc[df_copy.Inexact_duplicate_row.values]))
+3851
+# Print the number of non-first occurrences of nonexact duplicates
+print(len(df_copy.iloc[(df_copy.Partner_index != -1).values]))
+2519
+
+
+#####################
+This section is old (July 26, 2021).
 I had accidentally included NODC CTD oxygen data which we had decided not to use
 over concerns about sensor errors and no calibration against titration data.
 

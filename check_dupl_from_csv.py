@@ -1,3 +1,4 @@
+# USED
 # Check for duplicates in data for climatology
 
 import pandas as pd
@@ -12,6 +13,7 @@ df_all = pd.read_csv('C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_ext
                      'ALL_Profiles_Oxy_1991_2020.csv')
 df_all = df_all.drop(columns=['Unnamed: 0'])
 
+###############################################
 # Check for NaN values
 nan_ind = np.where(pd.isna(df_all.Date_string))
 np.where(pd.isna(df_all))
@@ -103,39 +105,39 @@ ind = df_copy.index.values
 latlon_lim = 0.01  # decimal degrees
 t_lim = pd.Timedelta(1, unit='h')  # hours
 
-# Iterate through dataframe -- Used this loop or next one??
-for i in trange(len(df_copy)):
-    # Create masks to check for values in between selected ranges
-    mask_lat = df_copy.loc[:, 'Latitude'].between(
-        df_copy.loc[ind[i], 'Latitude'] - latlon_lim,
-        df_copy.loc[ind[i], 'Latitude'] + latlon_lim,
-        inclusive=True)
-    mask_lon = df_copy.loc[:, 'Longitude'].between(
-        df_copy.loc[ind[i], 'Longitude'] - latlon_lim,
-        df_copy.loc[ind[i], 'Longitude'] + latlon_lim,
-        inclusive=True)
-    mask_time = df_copy.loc[:, 'Time_pd'].between(
-        df_copy.loc[ind[i], 'Time_pd'] - t_lim,
-        df_copy.loc[ind[i], 'Time_pd'] + t_lim,
-        inclusive=True)
-
-    # Perform intersection of masks (set 'and')
-    mask_llt = mask_lat & mask_lon & mask_time
-
-    # Exclude the first True occurrence and flag its inexact duplicates
-    # Make sure that the change "sticks"
-    # Find index of first occurrence of "True"
-    # IndexError: index 0 is out of bounds for axis 0 with size 0 for row 50165
-    # Need to search for rows that have Time_pd == NaT (b/c of Date_string == NaN)
-
-    first_true_ind = mask_llt.loc[mask_llt == True].index[0]
-    mask_llt.loc[first_true_ind] = False
-
-    # print(ind[i], len(mask_llt.loc[(mask_llt == True).values]))
-
-    # Union intersect (set inclusive "or") with the "all" mask
-    if len(mask_llt.loc[(mask_llt == True).values]) > 0:
-        df_copy.Inexact_duplicate_row = df_copy.Inexact_duplicate_row | mask_llt
+# # Iterate through dataframe -- DO NOT USE
+# for i in trange(len(df_copy)):
+#     # Create masks to check for values in between selected ranges
+#     mask_lat = df_copy.loc[:, 'Latitude'].between(
+#         df_copy.loc[ind[i], 'Latitude'] - latlon_lim,
+#         df_copy.loc[ind[i], 'Latitude'] + latlon_lim,
+#         inclusive=True)
+#     mask_lon = df_copy.loc[:, 'Longitude'].between(
+#         df_copy.loc[ind[i], 'Longitude'] - latlon_lim,
+#         df_copy.loc[ind[i], 'Longitude'] + latlon_lim,
+#         inclusive=True)
+#     mask_time = df_copy.loc[:, 'Time_pd'].between(
+#         df_copy.loc[ind[i], 'Time_pd'] - t_lim,
+#         df_copy.loc[ind[i], 'Time_pd'] + t_lim,
+#         inclusive=True)
+#
+#     # Perform intersection of masks (set 'and')
+#     mask_llt = mask_lat & mask_lon & mask_time
+#
+#     # Exclude the first True occurrence and flag its inexact duplicates
+#     # Make sure that the change "sticks"
+#     # Find index of first occurrence of "True"
+#     # IndexError: index 0 is out of bounds for axis 0 with size 0 for row 50165
+#     # Need to search for rows that have Time_pd == NaT (b/c of Date_string == NaN)
+#
+#     first_true_ind = mask_llt.loc[mask_llt == True].index[0]
+#     mask_llt.loc[first_true_ind] = False
+#
+#     # print(ind[i], len(mask_llt.loc[(mask_llt == True).values]))
+#
+#     # Union intersect (set inclusive "or") with the "all" mask
+#     if len(mask_llt.loc[(mask_llt == True).values]) > 0:
+#         df_copy.Inexact_duplicate_row = df_copy.Inexact_duplicate_row | mask_llt
 
 
 # Iterate through dataframe to check validity of inexact duplicate checking
