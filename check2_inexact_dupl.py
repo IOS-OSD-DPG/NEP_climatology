@@ -332,9 +332,9 @@ def run_check2():
     df_out = df_out.drop(columns='Time_pd')
 
     # Convert boolean flags to strings
-    df_out.iloc[:, 9] = df_out.iloc[:, 9].astype(str)
-    df_out.iloc[:, 10] = df_out.iloc[:, 10].astype(str)
-    df_out.iloc[:, 11] = df_out.iloc[:, 11].astype(str)
+    df_out.iloc[:, 9] = df_out.iloc[:, 9].astype(bool)
+    df_out.iloc[:, 10] = df_out.iloc[:, 10].astype(bool)
+    df_out.iloc[:, 11] = df_out.iloc[:, 11].astype(bool)
 
     # Export file
     df_out_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \

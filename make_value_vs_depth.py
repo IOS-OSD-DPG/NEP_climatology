@@ -316,22 +316,23 @@ def mmol_m3_to_umol_kg(oxygen, prac_sal, temp, press, lat, lon):
     # Applies to MEDS oxygen data
 
     mmol_to_umol = 1e3
-    m3_to_l = 1e3
 
     # Convert pressure to SP: Sea pressure (absolute pressure minus 10.1325 dbar), dbar
     SP = press - 10.1325
 
-    # Convert practical salinity to SA: Absolute salinity
+    # Convert practical salinity to SA: Absolute salinity, g/kg
+    # prac_sal is practical salinity unit (PSS-78)
     SA = SA_from_SP(prac_sal, SP, lon, lat)
 
     # Convert temperature to CT: Conservative Temperature (ITS-90), degrees C
+    # temp parameter should be In-situ temperature (ITS-90), degrees C
     CT = CT_from_t(SA, temp, SP)
 
-    # Calculate the in-situ density of seawater
+    # Calculate the in-situ density of seawater in kg/m^3
     insitu_density = rho(SA, CT, SP)
 
-    # Convert mmol/m^3 to umol/m^3 to umol/L to umol/kg
-    oxygen_out = oxygen * mmol_to_umol / m3_to_l * insitu_density
+    # Convert mmol/m^3 to umol/m^3 to umol/kg
+    oxygen_out = oxygen * mmol_to_umol / insitu_density
 
     return oxygen_out
 
@@ -377,7 +378,7 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
         df_meds.loc[~pressure_subsetter, 'Depth_m'].values,
         df_meds.loc[~pressure_subsetter, 'Lat'].values)
 
-    # Unit conversions for oxygen from millimol/m^3 to umol/kg########################
+    # Unit conversions for oxygen from millimol/m^3 to umol/kg
     df_meds['Oxygen_umol'] = mmol_m3_to_umol_kg(df_meds['DOXY'], df_meds['PSAL'],
                                                 df_meds['TEMP'], df_meds['Press_dbar'],
                                                 df_meds['Lat'], df_meds['Lon'])
@@ -392,7 +393,7 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
     df_out['Depth_m'] = df_meds['Depth_m']
     df_out['Depth_flag'] = df_meds['D_P_flag']
     df_out['Value'] = df_meds['Oxygen_umol']
-    df_out['Source_flag'] = df_meds['PP_flag']
+    df_out['Source_flag'] = df_meds['DOXY_flag']
 
     return df_out
 
@@ -493,8 +494,8 @@ for i in trange(len(ios_ctd)):
 
     # ios_ctd_df = pd.concat([ios_ctd_df, df_add])
 
-ios_ctd_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-               'value_vs_depth\\IOS_CTD_Oxy_1991_2020_value_vs_depth_0.csv'
+# ios_ctd_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#                'value_vs_depth\\IOS_CTD_Oxy_1991_2020_value_vs_depth_0.csv'
 
 # ios_ctd_df.to_csv(ios_ctd_name, index=False)
 
@@ -508,7 +509,7 @@ wp_list = glob.glob(wp_dir + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
 
 wp_list += glob.glob(wp_dir + '*.bot.nc', recursive=False)
 
-nc = open_dataset(wp_list[0])
+# nc = open_dataset(wp_list[0])
 
 df = ios_wp_to_vvd0(wp_list)
 
@@ -541,7 +542,8 @@ osd_df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 osd_df.to_csv(osd_df_name, index=False)
 
 ########################
-# Test out each function
+# MEDS data
+
 meds_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
             'meds_data_extracts\\bo_extracts\\MEDS_19940804_19930816_BO_TSO_profiles_source.csv'
 
@@ -556,7 +558,8 @@ vvd0_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 
 df_meds_vvd0.to_csv(vvd0_name, index=False)
 
-# Concatenate all dataframes together
+#####################################
+# Concatenate all dataframes together OR NOT BC OF SIZE ISSUES
 vvd_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
           'value_vs_depth\\'
 files = glob.glob(vvd_dir + '*.csv')
