@@ -141,6 +141,7 @@ df_out.to_csv(outname, index=False)
 
 ################
 ### NODC WOD ###
+
 def nodc_to_common_csv(nodc_files, sourcetype):
     colnames = ["Source_data_file_name", "Institute", "Cruise_number",
                 "Instrument_type", "Date_string", "Latitude",
@@ -175,7 +176,7 @@ def nodc_to_common_csv(nodc_files, sourcetype):
         nodc_df_add = pd.DataFrame(
             data=np.array([nodc_nocad_fname_array,
                            nodc_nocad_institute_array,
-                           nodc_nocad_data.WOD_cruise_identifier.data,
+                           nodc_nocad_data.WOD_cruise_identifier.data.astype(str),  #convert to str
                            nodc_nocad_instrument_array,
                            nodc_nocad_timestring,
                            nodc_nocad_data.lat.data,

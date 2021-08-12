@@ -149,153 +149,6 @@ def nodc_to_vvd0(ncdata, instrument='BOT', counter=0):
     return df_out, counter
 
 
-def nodc_to_vvd(ncdata, df_pdt):
-    # Make sure to correct the format of cruise IDs (remove b')
-
-    # Get first index of each profile in ncdata.Oxygen.data
-    prof_start_indices = np.concatenate(
-        [np.zeros(1, dtype=int), np.cumsum(ncdata.Oxygen_row_size.data,
-                                           dtype='int')[:-1]])
-
-    # Make column that flags when file name starts with Oxy (for NODC data)
-    df_pdt['Fname_startswith_Oxy'] = list(map(lambda x: x.startswith('Oxy'),
-                                              df_pdt['Source_data_file_name']))
-
-    # Initialize list of dictionaries, to add to in for-loop
-    dict_list = []
-
-    # Iterate through the profiles in the NODC file
-    for i in trange(len(prof_start_indices)):
-        cruise_nodc = ncdata.WOD_cruise_identifier.data[i].astype(str)
-        time_nodc = pd.to_datetime(ncdata.time.data[i]).strftime('%Y%m%d%H%M%S')
-        lat_nodc = ncdata.lat.data[i]
-        lon_nodc = ncdata.lon.data[i]
-
-        indexer = np.where((df_pdt.Fname_startswith_Oxy == True) &
-                           (df_pdt.Cruise_number == cruise_nodc) &
-                           (df_pdt.Date_string == time_nodc) &
-                           (df_pdt.Latitude == lat_nodc) &
-                           (df_pdt.Longitude == lon_nodc))
-
-        if len(indexer) > 1:
-            print('Warning: indexer has length {}'.format(len(indexer)))
-
-        # Find the duplicate flags using indexer
-        ex_dup_flag = df_pdt.loc[indexer[0], 'Exact_duplicate_row']
-        cb_dup_flag = df_pdt.loc[indexer[0], 'CTD_BOT_duplicate_row']
-        ie_dup_flag = df_pdt.loc[indexer[0], 'Inexact_duplicate_check2']
-
-        # Iterate over depth
-        for j in range(prof_start_indices[i],
-                       prof_start_indices[i] + ncdata.Oxygen_row_size.data[i]):
-            dict_list.append({'CruiseID': cruise_nodc,
-                              'Date_string': time_nodc,
-                              'Latitude': lat_nodc,
-                              'Longitude': lon_nodc,
-                              'Depth_m': ncdata.z.data[j],
-                              'Depth_flag': ncdata.z_WODflag.data[j],
-                              'Value': ncdata.Oxygen.data[j],
-                              'Source_flag': ncdata.Oxygen_WODflag.data[j],
-                              'Exact_duplicate_flag': ex_dup_flag,
-                              'CTD_BOT_duplicate_flag': cb_dup_flag,
-                              'Inexact_duplicate_flag': ie_dup_flag})
-
-    df_out = pd.DataFrame.from_dict(dict_list)
-
-    return df_out
-
-
-# MEDS data
-def meds_to_vvd(df_meds, df_pdt):
-    # vvd: value vs depth table
-    # colnames: column names for output value vs depth table
-
-    # meds_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\' \
-    #             'bo_extracts\\MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
-
-    # Add pandas date string column to df_meds, as before
-    df_meds['Hour'] = df_meds.Time.astype(str).apply(
-        lambda x: ('000' + x)[-4:][:-2])
-    df_meds['Minute'] = df_meds.Time.astype(str).apply(
-        lambda x: ('000' + x)[-4:][-2:])
-
-    df_meds['Date_string'] = pd.to_datetime(
-        df_meds[['Year', 'Month', 'Day', 'Hour', 'Minute']]).strftime(
-        '%Y%m%d%H%M%S')
-
-    # Unit conversions for depth/pressure
-    df_meds['Depth_m'] = df_meds['Depth/Press']
-    pressure_subsetter = np.where((df_meds.loc[:, 'D_P_code'] == 'P').values)[0]
-    # Not sure if df format is ok for z_from_p or if array type is required
-    df_meds.loc[pressure_subsetter, 'Depth_m'] = z_from_p(
-        df_meds.loc[pressure_subsetter, 'Depth_m'].values,
-        df_meds.loc[pressure_subsetter, 'Lat'].values)
-
-    # Remove Depth/Press and D_P_code after unit conversions done
-    # Remove D_P_flag after source flagging is done
-
-    # Subset the df_pdt dataframe for only meds data
-    meds_fname = 'MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
-    pdt_subset = deepcopy(df_pdt.loc[df_pdt.Source_data_file_name == meds_fname])
-
-    pdt_subset = pdt_subset.reset_index()
-
-    # print(pdt_subset.index)
-
-    # Iterate through MEDS dataframe
-    dict_list = []
-
-    # Should I iterate through the pdt instead? Should it matter?
-
-    for i in trange(len(df_meds)):
-
-        # Find the duplicate flags in df_pdt
-        cruise_meds = df_meds.loc[i, 'CruiseID']
-        time_meds = df_meds.loc[i, 'Date_string']
-        lat_meds = df_meds.loc[i, 'Lat']
-        lon_meds = -df_meds.loc[i, 'Lon']  # convert to positive towards east not west
-
-        # Only use bottle data from MEDS so index by instrument type too
-        indexer = np.where((pdt_subset.Cruise_number == cruise_meds) &
-                           (pdt_subset.Date_string == time_meds) &
-                           (pdt_subset.Latitude == lat_meds) &
-                           (pdt_subset.Longitude == lon_meds))[0]
-
-        print(np.where((pdt_subset.Cruise_number == cruise_meds))[0])
-        print(np.where((pdt_subset.Date_string == time_meds))[0])
-        print(np.where((pdt_subset.Latitude == lat_meds))[0])
-        print(np.where((pdt_subset.Longitude == lon_meds))[0])
-
-        if len(indexer) == 0:
-            print('Warning: Row search returned no matches')
-        elif len(indexer) > 1:
-            print('Warning: More than one row match for finding duplicate flags')
-
-        ex_dup_flag = pdt_subset.loc[indexer[0], 'Exact_duplicate_row']
-        cb_dup_flag = pdt_subset.loc[indexer[0], 'CTD_BOT_duplicate_row']
-        ie_dup_flag = pdt_subset.loc[indexer[0], 'Inexact_duplicate_check2']
-
-        dict_list.append({'CruiseID': cruise_meds,
-                          'Date_string': time_meds,
-                          'Latitude': lat_meds,
-                          'Longitude': lon_meds,
-                          'Depth_m': df_meds.loc[i, 'Depth_m'],
-                          'Depth_flag': df_meds.loc[i, 'D_P_flag'],
-                          'Value': df_meds.loc[i, 'ProfParm'],
-                          'Source_flag': df_meds.loc[i, 'DOXY_flag'],
-                          'Exact_duplicate_flag': ex_dup_flag,
-                          'CTD_BOT_duplicate_flag': cb_dup_flag,
-                          'Inexact_duplicate_flag': ie_dup_flag})
-
-        # Delete the row used so that it's only used once
-        pdt_subset = pdt_subset.drop(index=indexer[0])
-
-    # Convert list to dataframe
-    df_out = pd.DataFrame.from_dict(dict_list)
-
-    return df_out
-
-
 def mL_L_to_umol_kg(oxygen):
     # Oxygen in mL/L
     # Applies to some IOS Water Properties data
@@ -386,6 +239,7 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
     # Write to dataframe to output
     df_out = pd.DataFrame()
     df_out['Profile_number'] = df_meds['Profile_number']
+    df_out['Cruise_number'] = df_meds['CruiseID']
     df_out['Instrument_type'] = np.repeat(instrument, len(df_out))  # To remove later
     df_out['Date_string'] = df_meds['Date_string']
     df_out['Latitude'] = df_meds['Lat']
@@ -396,28 +250,6 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
     df_out['Source_flag'] = df_meds['DOXY_flag']
 
     return df_out
-
-
-def meds_add_vvd_dup_flags(meds_df, df_pdt):
-    # Add the profile data table flags to the meds value vs depth table
-    # Subset the df_pdt dataframe for only meds data
-    meds_fname = 'MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
-    pdt_subset = deepcopy(df_pdt.loc[df_pdt.Source_data_file_name == meds_fname])
-
-    pdt_subset = pdt_subset.reset_index()
-
-    # Initialize columns for Exact, CTD-bottle and inexact duplicate flags
-    meds_df['Exact_duplicate_flag'] = np.repeat(-1, len(meds_df))
-    meds_df['CTD_BOT_duplicate_flag'] = np.repeat(-1, len(meds_df))
-    meds_df['Inxact_duplicate_flag'] = np.repeat(-1, len(meds_df))
-
-    for i in trange(len(pdt_subset)):
-        cruise_pdt = pdt_subset.loc[i, 'Cruise_number']
-        time_pdt = pdt_subset.loc[i, 'Date_string']
-        lat_pdt = pdt_subset.loc[i, 'Cruise_number']
-        lon_pdt = pdt_subset.loc[i, 'Cruise_number']
-
-    return
 
 
 def get_pdt_df():
@@ -557,6 +389,7 @@ vvd0_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
             'value_vs_depth\\MEDS_BOT_Oxy_1991_1995_value_vs_depth_0.csv'
 
 df_meds_vvd0.to_csv(vvd0_name, index=False)
+
 
 #####################################
 # Concatenate all dataframes together OR NOT BC OF SIZE ISSUES
