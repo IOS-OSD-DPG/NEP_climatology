@@ -104,9 +104,17 @@ nan_files = glob.glob(nan_dir + '*.csv')
 
 df_all = pd.DataFrame()
 
+profile_counter = 0
 for f in nan_files:
     df_add = pd.read_csv(f)
+    if df_all.empty:
+        df_add.loc[:, 'Profile_number'] += profile_counter
+    else:
+        df_add.loc[:, 'Profile_number'] += profile_counter + 1
+
     df_all = pd.concat([df_all, df_add])
+    df_all.reset_index(drop=True, inplace=True)
+    profile_counter += df_all.loc[len(df_all) - 1, 'Profile_number'] #index up to len - 1
 
 all_name = 'ALL_Oxy_1991_2020_value_vs_depth_nan_rm.csv'
 
