@@ -77,7 +77,7 @@ def vvd_range_check(vvd, range_df):
     return vvd
 
 
-def vvd_gradient_check(df, grad_df):
+def vvd_gradient_check(df, grad_df, verbose=False):
     # Value vs depth gradient check
     # Check for gradients, inversions and zero sensitivity
     # df: value vs depth dataframe
@@ -88,18 +88,24 @@ def vvd_gradient_check(df, grad_df):
 
     prof_start_ind = np.unique(df.Profile_number, return_index=True)[1]
 
-    for i in trange(len(prof_start_ind)):  #  20
+    # Iterate through all of the profiles
+    for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
+        # print(prof_start_ind[i])
+
         # Set profile end index
         if i == len(prof_start_ind) - 1:
             end_ind = len(df)
         else:
             # Pandas indexing is inclusive so need the -1
-            end_ind = prof_start_ind[i + 1] - 1
+            end_ind = prof_start_ind[i + 1]
 
-        # Need the +1 because indices would otherwise not go up to and include second last elem?
-        indices = np.arange(prof_start_ind[i], end_ind + 1)
+        # Get profile data; np.arange not inclusive of end which we want here
+        indices = np.arange(prof_start_ind[i], end_ind)
         depths = df.loc[indices, 'Depth_m']
         values = df.loc[indices, 'Value']
+
+        if verbose:
+            print('Got values')
 
         # Try to speed up computations by skipping profiles with only 1 measurement
         if len(depths) <= 1:
@@ -128,6 +134,9 @@ def vvd_gradient_check(df, grad_df):
             subsetter_MIV_gt_400 = np.where((depths > 400) &
                                             (gradients > grad_df.loc['Oxygen', 'MIV_Z_gt_400m']))[0]
 
+            if verbose:
+                print('Created MGV/MIV subsetters')
+
             # Zero sensitivity check
             # Only flag observations with Value = 0
             # If there are zero-as-missing-values at the very surface, then
@@ -143,14 +152,21 @@ def vvd_gradient_check(df, grad_df):
                     'Oxygen', 'MGV_Z_gt_400m'] * grad_df.loc['Oxygen', 'ZSI']) &
                 (values[1:] == 0.))[0]
 
+            if verbose:
+                print('Created ZSI subsetters')
+
             # Flag the observations that failed the checks
-            df.loc[indices[subsetter_MGV_lt_400 | subsetter_MGV_gt_400], 'Gradient_check_flag'] = 1
-            df.loc[indices[subsetter_MIV_lt_400 | subsetter_MIV_gt_400], 'Gradient_check_flag'] = 2
+            # "indices" span prof_start_ind[i] to the end of the profile
+            df.loc[indices[np.union1d(subsetter_MGV_lt_400, subsetter_MGV_gt_400)],
+                   'Gradient_check_flag'] = 1
+            df.loc[indices[np.union1d(subsetter_MIV_lt_400, subsetter_MIV_gt_400)],
+                   'Gradient_check_flag'] = 2
 
             # Flag = 3 for ZSI check failed
             # Flag = 4, for ZSI check and gradient check failed
             # Flag = 5 for ZSI check and inversion check failed
-            df.loc[indices[subsetter_ZSI_lt_400 | subsetter_ZSI_gt_400], 'Gradient_check_flag'] += 3
+            df.loc[indices[np.union1d(subsetter_ZSI_lt_400, subsetter_ZSI_gt_400)],
+                   'Gradient_check_flag'] += 3
 
     return df
 
@@ -264,6 +280,8 @@ df_grad = pd.read_csv(grad_file, index_col='Variable')
 # Run gradient check
 df_out = vvd_gradient_check(df_in, df_grad)
 
+print('Done')
+
 # Print summary statistics
 print(len(df_out.loc[df_out.Gradient_check_flag == 1, 'Gradient_check_flag']))  # gradient
 print(len(df_out.loc[df_out.Gradient_check_flag == 2, 'Gradient_check_flag']))  # inversion
@@ -272,6 +290,7 @@ print(len(df_out.loc[df_out.Gradient_check_flag == 4, 'Gradient_check_flag']))  
 print(len(df_out.loc[df_out.Gradient_check_flag == 5, 'Gradient_check_flag']))  # ZSI and inversion
 
 df_outname = df_file.replace('rng_check_done', 'grad_check')
+print(df_outname)
 df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
             'value_vs_depth\\8_gradient_check\\'
 
@@ -280,4 +299,4 @@ df_out.to_csv(df_outdir + df_outname, index=False)
 df_out2 = vvd_apply_value_flag(df_out, 'Gradient_check_flag')
 
 df_out2_name = df_outname.replace('grad_check', 'grad_check_done')
-df_out2.to_csv(df_out2_name, index=False)
+df_out2.to_csv(df_outdir + df_out2_name, index=False)

@@ -72,7 +72,8 @@ rzout = robjects.FloatVector(zout)
 print(rzpts.r_repr())
 
 # Need to convert python arrays to R arrays
-result = roceApprox(rzpts, ropts, rzout, 'unesco')
+# 'rr' stands for Reiniger-Ross
+result = roceApprox(rzpts, ropts, rzout, 'rr')
 
 # Convert the result back to a numpy array
 result_np = array(result)
