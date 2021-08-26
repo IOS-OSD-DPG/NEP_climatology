@@ -10,8 +10,11 @@ def vvd_depth_check(vvd):
     # vvd: value vs depth dataframe
 
     # Now do depth checks: inversions and duplicates
-    # 0: check passed; 1: inversion check failed; 2: duplicate check failed;
-    # 3: inversion check and duplicate check both failed
+    # 0: check passed; 1: range check failed; 2: inversion check failed;
+    # 3: range check and inversion check failed; 4: duplicate check failed;
+    # 5: range check and duplicate check both failed
+    # 6: inversion check and duplicate check both failed
+    # 7: range check, inversion check and duplicate check all failed
     vvd['Depth_check_flag'] = np.zeros(len(vvd), dtype=int)
 
     # Iterate through each profile in nested for loops?
@@ -27,32 +30,37 @@ def vvd_depth_check(vvd):
         # Get the depth measurements of the profile
         depths = vvd.loc[prof_start_ind[i]:end_ind, 'Depth_m']
 
-        if len(depths) == 1:
-            # Skip the rest because it's redundant
-            continue
-        else:
-            # print(depths)
+        # print(depths)
 
-            # len(diffs) = len(depths)-1
-            # diffs could be an empty array
-            diffs = np.diff(depths)
-            # pass_check = np.where(diffs > 0)[0]
-            fail_inverse = np.where(diffs < 0)[0]
-            fail_copy = np.where(diffs == 0)[0]
+        # Check for depths out of range
+        # Out of range: above the surface or below 10,000 m
+        fail_depth_range = np.where((depths < 0) | (depths > 1e4))[0]
 
-            # Assign flags to df accordingly
-            # +1 to account for len(diffs) = len(depths)-1
-            if len(fail_inverse) > 0:
-                vvd.loc[prof_start_ind[i] + 1 + fail_inverse, 'Depth_check_flag'] += 1
-            if len(fail_copy) > 0:
-                vvd.loc[prof_start_ind[i] + 1 + fail_copy, 'Depth_check_flag'] += 2
+        # Check for depth inversions and copies
+        # len(diffs) = len(depths)-1
+        # diffs could be an empty array
+        diffs = np.diff(depths)
+        # pass_check = np.where(diffs > 0)[0]
+        fail_inverse = np.where(diffs < 0)[0]
+        fail_copy = np.where(diffs == 0)[0]
 
-            # continue
+        # Assign flags to df accordingly
+        # +1 to account for len(diffs) = len(depths)-1
+        if len(fail_depth_range) > 0:
+            vvd.loc[prof_start_ind[i] + 1 + fail_depth_range, 'Depth_check_flag'] += 1
+        if len(fail_inverse) > 0:
+            vvd.loc[prof_start_ind[i] + 1 + fail_inverse, 'Depth_check_flag'] += 2
+        if len(fail_copy) > 0:
+            vvd.loc[prof_start_ind[i] + 1 + fail_copy, 'Depth_check_flag'] += 4
 
-    print('Number of depth inversions:',
+        # continue
+
+    print('Number of depth values out of range:',
           len(vvd.loc[vvd.Depth_check_flag == 1, 'Depth_check_flag']))
-    print('Number of depth duplicates',
+    print('Number of depth inversions:',
           len(vvd.loc[vvd.Depth_check_flag == 2, 'Depth_check_flag']))
+    print('Number of depth duplicates',
+          len(vvd.loc[vvd.Depth_check_flag == 4, 'Depth_check_flag']))
 
     return vvd
 

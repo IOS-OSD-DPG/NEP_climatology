@@ -45,7 +45,7 @@ for i in range(len(prof_start_ind)):
 # Export dfs
 
 outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\9_vertical_interp\\'
+         'value_vs_depth\\9_vertical_interp\\by_season\\'
 
 df_winter.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_1_3.csv')
 df_spring.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_4_6.csv')

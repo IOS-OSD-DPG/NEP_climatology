@@ -6,6 +6,7 @@
     * Format will be same as the input value vs depth format
     * The new csv file will be larger so will need to use chunking to read in
 
+oceApprox docs: https://rdrr.io/cran/oce/man/oceApprox.html
 """
 
 from rpy2 import robjects
@@ -89,8 +90,8 @@ df_out = pd.DataFrame()
 sl_colnames = list(df_vvd.columns[:-2]) + ['SL_depth_m', 'SL_value']
 
 # Iterate through all of the profiles
-for i in trange(int(np.floor(len(prof_start_ind)/2)),
-                len(prof_start_ind)):  # len(prof_start_ind) 20
+# int(np.floor(len(prof_start_ind)/2))
+for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
     # print(prof_start_ind[i])
 
     # Set profile end index
@@ -115,56 +116,82 @@ for i in trange(int(np.floor(len(prof_start_ind)/2)),
     # Index [0] is the first element of the returned tuple which is an array
     # of the indices
     sl_subsetter = np.where((sl_arr >= depths[0]) & (sl_arr <= depths[-1]))[0]
-    # z_out is the standard levels to interpolate to in Python array format
-    z_out = sl_arr[sl_subsetter]
 
-    # print(z_out)
+    # Skip computations if no standard level matches
+    if len(sl_subsetter) > 0:
+        # z_out is the standard levels to interpolate to in Python array format
+        z_out = sl_arr[sl_subsetter]
 
-    # Convert profile measurements from Python array to R vector
-    rdepths = robjects.FloatVector(depths)
-    rvalues = robjects.FloatVector(values)
+        # print(z_out)
 
-    # Convert standard levels from Python array to R vector
-    rz_out = robjects.FloatVector(z_out)
+        # Convert profile measurements from Python array to R vector
+        rdepths = robjects.FloatVector(depths)
+        rvalues = robjects.FloatVector(values)
 
-    # Interpolate to standard levels
-    # 'rr' stands for the Reiniger-Ross interpolation method used by the WOA18
-    rsl_values = roceApprox(rdepths, rvalues, rz_out, 'rr')
+        # Convert standard levels from Python array to R vector
+        rz_out = robjects.FloatVector(z_out)
 
-    # Convert result to Python array format
-    sl_values = np.array(rsl_values)
+        # Interpolate to standard levels
+        # 'unesco' stands for the vertical interpolation method used by the WOA18
+        # Reiniger-Ross (1968) interpolation used when 4 points are available
+        # Lagrangian interpolation used when only 3 points available
+        # Linear interpolation used when only 2 points available (?)
+        # See oceApprox() function docs for more details
+        rsl_values = roceApprox(rdepths, rvalues, rz_out, 'unesco')
 
-    # Update length of profile information to length of interpolated value array
-    profile_number = np.repeat(df_vvd.loc[indices[0], 'Profile_number'], len(z_out))
-    cruise_number = np.repeat(df_vvd.loc[indices[0], 'Cruise_number'], len(z_out))
-    instrument_type = np.repeat(df_vvd.loc[indices[0], 'Instrument_type'], len(z_out))
-    date_string = np.repeat(df_vvd.loc[indices[0], 'Date_string'], len(z_out))
-    latitude = np.repeat(df_vvd.loc[indices[0], 'Latitude'], len(z_out))
-    longitude = np.repeat(df_vvd.loc[indices[0], 'Longitude'], len(z_out))
+        # Convert result to Python array format
+        sl_values = np.array(rsl_values)
 
-    # Put these updated values into a dataframe
-    df_add = pd.DataFrame(
-        data=np.array([profile_number, cruise_number, instrument_type, date_string,
-                       latitude, longitude, z_out, sl_values]).transpose(),
-        columns=sl_colnames)
+        # Update length of profile information to length of interpolated value array
+        profile_number = np.repeat(df_vvd.loc[indices[0], 'Profile_number'], len(z_out))
+        cruise_number = np.repeat(df_vvd.loc[indices[0], 'Cruise_number'], len(z_out))
+        instrument_type = np.repeat(df_vvd.loc[indices[0], 'Instrument_type'], len(z_out))
+        date_string = np.repeat(df_vvd.loc[indices[0], 'Date_string'], len(z_out))
+        latitude = np.repeat(df_vvd.loc[indices[0], 'Latitude'], len(z_out))
+        longitude = np.repeat(df_vvd.loc[indices[0], 'Longitude'], len(z_out))
 
-    df_out = pd.concat([df_out, df_add])
+        # Put these updated values into a dataframe
+        df_add = pd.DataFrame(
+            data=np.array([profile_number, cruise_number, instrument_type, date_string,
+                           latitude, longitude, z_out, sl_values]).transpose(),
+            columns=sl_colnames)
 
-    # Reset index in-place; do not add old indices as a new column
-    df_out.reset_index(drop=True, inplace=True)
+        df_out = pd.concat([df_out, df_add])
+
+        # Reset index in-place; do not add old indices as a new column
+        df_out.reset_index(drop=True, inplace=True)
 
     # continue
 
 # Summary stats
 print(len(df_out))
+print(len(df_vvd))
 
-print(df_out.loc[:10, ['SL_depth_m', 'SL_value']])
+# Find how many profiles were lost between df_vvd and df_out
+num_prof_in = len(np.unique(df_vvd.Profile_number, return_index=True)[1])
+num_prof_out = len(np.unique(df_out.Profile_number, return_index=True)[1])
+
+print(num_prof_in, num_prof_out, num_prof_in-num_prof_out)
+
+"""
+100%|██████████| 29118/29118 [46:30<00:00, 10.43it/s]
+print(len(df_out))
+835574
+print(len(df_vvd))
+8255554
+num_prof_in = len(np.unique(df_vvd.Profile_number, return_index=True)[1])
+num_prof_out = len(np.unique(df_out.Profile_number, return_index=True)[1])
+print(num_prof_in, num_prof_out, num_prof_in-num_prof_out)
+28485 28019 466
+"""
+
+print(df_out.loc[:, ['SL_depth_m', 'SL_value']])
 
 # Export dataframe to csv file
 df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
             'value_vs_depth\\9_vertical_interp\\'
 
 # 'rr' stands for Reiniger-Ross vertical interpolation
-df_outname = 'Oxy_1991_2020_value_vs_depth_rr_pt2.csv'
+df_outname = 'Oxy_1991_2020_value_vs_depth_rr.csv'
 
 df_out.to_csv(df_outdir + df_outname, index=False)
