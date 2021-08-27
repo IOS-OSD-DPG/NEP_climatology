@@ -13,10 +13,10 @@ import numpy as np
 import glob
 from os.path import basename
 
-in_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\9_vertical_interp\\by_season\\'
+interp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+             'value_vs_depth\\9_vertical_interp\\by_season\\'
 
-infiles = glob.glob(in_dir + '*.csv')
+infiles = glob.glob(interp_dir + '*.csv')
 
 # Need the seasons in order
 infiles.sort()

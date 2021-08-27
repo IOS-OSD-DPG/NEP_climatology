@@ -47,7 +47,7 @@ for i in range(len(prof_start_ind)):
 outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
          'value_vs_depth\\9_vertical_interp\\by_season\\'
 
-df_winter.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_1_3.csv')
-df_spring.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_4_6.csv')
-df_summer.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_7_9.csv')
-df_fall.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_10_12.csv')
+df_winter.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_1_3.csv', index=False)
+df_spring.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_4_6.csv', index=False)
+df_summer.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_7_9.csv', index=False)
+df_fall.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_10_12.csv', index=False)

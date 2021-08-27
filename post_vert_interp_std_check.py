@@ -24,7 +24,7 @@ df_in = pd.read_csv(infiles[0])
 # STANDARD DEVIATION CHECKS
 
 # Initialize column for standard deviation flags
-df_in['STD_flag'] = np.zeros(len(df_in), dtyp=int)
+df_in['STD_flag'] = np.zeros(len(df_in), dtype='int32')
 
 # Calculate the standard deviation of all values above and including 50m
 subsetter_le_50m = np.where(df_in.SL_depth_m <= 50)[0]
@@ -44,7 +44,7 @@ std_flag_loc = np.where(
 
 df_in.loc[std_flag_loc, 'STD_flag'] = 1
 
-# Repeat std check once
+# Repeat std check once on the data that haven't already been flagged
 
 # Calculate the standard deviation of all values above and including 50m
 subsetter_le_50m_2 = np.where((df_in.STD_check == 0) &

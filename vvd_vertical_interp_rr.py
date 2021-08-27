@@ -25,7 +25,7 @@ base = importr('base')
 # import R's "utils" package
 utils = importr('utils')
 
-print(isinstalled('stats'))
+# print(isinstalled('stats'))
 
 stats = importr('stats')
 
@@ -115,7 +115,12 @@ for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
     # The last element in depths is the deepest one
     # Index [0] is the first element of the returned tuple which is an array
     # of the indices
-    sl_subsetter = np.where((sl_arr >= depths[0]) & (sl_arr <= depths[-1]))[0]
+    if depths[0] < 5:
+        # If there are data above 5m depth, then the surface value is taken to
+        # equal to the shallowest recorded value.
+        sl_subsetter = np.where(sl_arr <= depths[-1])[0]
+    else:
+        sl_subsetter = np.where((sl_arr >= depths[0]) & (sl_arr <= depths[-1]))[0]
 
     # Skip computations if no standard level matches
     if len(sl_subsetter) > 0:
@@ -163,13 +168,39 @@ for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
 
     # continue
 
+
+# Convert dtypes
+df_out.loc[:, 'Profile_number'] = df_out.Profile_number.astype('int')
+df_out.loc[:, 'SL_depth_m'] = df_out.SL_depth_m.astype('int32')
+
+# Export dataframe to csv file
+df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+            'value_vs_depth\\9_vertical_interp\\'
+
+# 'rr' stands for Reiniger-Ross vertical interpolation
+df_outname = 'Oxy_1991_2020_value_vs_depth_rr.csv'
+
+df_out.to_csv(df_outdir + df_outname, index=False)
+
+
+# Export list of profiles dropped to a file
+prof_drop_arr = np.setdiff1d(df_vvd.Profile_number, df_out.Profile_number)
+
+df_prof_drop = pd.Series(prof_drop_arr, name='Profile_number')
+series_name = 'Oxy_1991_2020_rr_prof_drop.csv'
+df_prof_drop.to_csv(df_outdir + series_name, index=False)
+
+
 # Summary stats
 print(len(df_out))
 print(len(df_vvd))
 
+# print(df_out.loc[:55, ['SL_depth_m', 'SL_value']])
+# print(df_vvd.loc[:55, ['Depth_m', 'Value']])
+
 # Find how many profiles were lost between df_vvd and df_out
-num_prof_in = len(np.unique(df_vvd.Profile_number, return_index=True)[1])
-num_prof_out = len(np.unique(df_out.Profile_number, return_index=True)[1])
+num_prof_in = len(np.unique(df_vvd.loc[:, 'Profile_number']))
+num_prof_out = len(np.unique(df_out.Profile_number))
 
 print(num_prof_in, num_prof_out, num_prof_in-num_prof_out)
 
@@ -186,12 +217,3 @@ print(num_prof_in, num_prof_out, num_prof_in-num_prof_out)
 """
 
 print(df_out.loc[:, ['SL_depth_m', 'SL_value']])
-
-# Export dataframe to csv file
-df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-            'value_vs_depth\\9_vertical_interp\\'
-
-# 'rr' stands for Reiniger-Ross vertical interpolation
-df_outname = 'Oxy_1991_2020_value_vs_depth_rr.csv'
-
-df_out.to_csv(df_outdir + df_outname, index=False)
