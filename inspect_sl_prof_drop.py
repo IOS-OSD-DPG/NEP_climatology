@@ -16,8 +16,10 @@ grad_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 
 df_grad = pd.read_csv(grad_file)
 
-list_len_gt_1 = []
+list_len_gt_1 = []  # Profile length greater than 1
 
+# Iterate through the df of profile numbers of profiles dropped during
+# vertical interpolation
 for i in range(len(series_drop)):  # 20
     # Find the profile in the observed level data
     prof_ind = np.where(
@@ -28,8 +30,8 @@ for i in range(len(series_drop)):  # 20
     if len(prof) > 1:
         list_len_gt_1.append(series_drop.loc[i, 'Profile_number'])
 
-print(len(series_drop))
-print(len(list_len_gt_1))
+print(len(series_drop))  # 185 profiles
+print(len(list_len_gt_1))  # Number of dropped profiles with length > 1 == 11 profiles
 
 for num in list_len_gt_1:
     # Find the profile in the observed level data
@@ -48,3 +50,10 @@ for num in list_len_gt_1:
 # acceptable interpolation point distances from WOA13/18 into account,
 # which would still leave profiles with one obs at 4.9 m and the other at
 # > 300 m
+
+# numpy.interp1d(): One-dimensional linear interpolation for monotonically
+# increasing sample points.
+
+# scipy.interpolate.interp1d(): Interpolate a 1-D function.
+# Returns an interpolating function
+# (doesn't say the sample points have to be monotonically increasing)

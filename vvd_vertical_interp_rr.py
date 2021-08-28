@@ -15,6 +15,7 @@ import pandas as pd
 import numpy as np
 from tqdm import trange
 import csv
+# from scipy import interpolate
 
 
 # R PREPARATION
@@ -106,10 +107,14 @@ for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
     depths = np.array(df_vvd.loc[indices, 'Depth_m'])
     values = np.array(df_vvd.loc[indices, 'Value'])
 
-    # Check that depths are monotonously increasing
-    if not np.all(np.diff(depths)):
-        print('Index', prof_start_ind[i])
-        print('Warning: Depths not monotonously increasing')
+    # Re-sort the values if the profile is an upcast instead of a downcast
+    if np.all(np.diff(depths)) < 0:
+        # Sort the depths in increasing order
+        depths_sort_inds = depths.argsort()
+        # Index depths by increasing order
+        depths = depths[depths_sort_inds]
+        # Index values by the increasing order of the depths
+        values = depths[depths_sort_inds]
 
     # Extract the subset of standard levels to use for vertical interpolation
     # The last element in depths is the deepest one
@@ -140,7 +145,6 @@ for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
         # 'unesco' stands for the vertical interpolation method used by the WOA18
         # Reiniger-Ross (1968) interpolation used when 4 points are available
         # Lagrangian interpolation used when only 3 points available
-        # Linear interpolation used when only 2 points available (?)
         # See oceApprox() function docs for more details
         rsl_values = roceApprox(rdepths, rvalues, rz_out, 'unesco')
 

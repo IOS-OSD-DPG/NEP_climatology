@@ -5,14 +5,15 @@ import numpy as np
 import pandas as pd
 import glob
 from xarray import open_dataset
-from copy import deepcopy
+# from copy import deepcopy
 from tqdm import trange
 from gsw import z_from_p, p_from_z, CT_from_t, SA_from_SP
 from gsw.density import rho
+from os.path import basename
 
 
 # Start with IOS data
-def ios_to_vvd0(ncdata, instrument='BOT'):
+def ios_to_vvd0(ncdata, instrument='BOT', var='DOXMZZ01'):
     # Get index of first measurement of each profile
     # indexer = np.unique(ncdata.profile.data, return_index=True)[1]
 
@@ -25,14 +26,23 @@ def ios_to_vvd0(ncdata, instrument='BOT'):
 
     # print(len(unique), len(ncdata.mission_id.data))
 
+    # Check that the variable is in ncdata
+    try:
+        var_values = ncdata[var].data
+    except AttributeError:
+        print('Variable', var, 'not in dataset')
+        return None
+
     num = 1
     # Skip the first profile since its number is already zero
-    for j in range(1, len(unique) - 1):
-        df_out.loc[unique[j]:unique[j + 1], 'Profile_number'] = num
+    for j in range(1, len(unique)):
+        if j == len(unique):
+            end_prof_ind = None
+        else:
+            # Pandas indexes to inclusive end
+            end_prof_ind = unique[j + 1] - 1
+        df_out.loc[unique[j]:end_prof_ind, 'Profile_number'] = num
         num += 1
-
-    # Don't forget to number the last profile!
-    df_out.loc[unique[-1]:, 'Profile_number'] = num
 
     print('Total number of profiles:', num + 1)  # Started from zero
 
@@ -43,19 +53,21 @@ def ios_to_vvd0(ncdata, instrument='BOT'):
     df_out['Longitude'] = ncdata.longitude.data
     df_out['Depth_m'] = ncdata.depth.data
     df_out['Depth_flag'] = np.ones(len(ncdata.row), dtype=int)  # To remove later
-    df_out['Value'] = ncdata.DOXMZZ01.data
+    df_out['Value'] = var_values
     df_out['Source_flag'] = np.ones(len(ncdata.row), dtype=int)  # To remove later
 
     return df_out
 
 
-def ios_wp_to_vvd0(nclist):
+def ios_wp_to_vvd0(nclist, var='DOXMZZ01'):
     # Put IOS Water Properties data to a value vs depth table
 
     df_out = pd.DataFrame()
 
     # Iterate through the list of netcdf file paths
     for j, ncfile in enumerate(nclist):
+        # print(j, basename(ncfile))
+
         # Get instrument type
         if 'ctd' in ncfile:
             instrument_type = 'CTD'
@@ -65,13 +77,30 @@ def ios_wp_to_vvd0(nclist):
         # Open the netCDF file
         ncdata = open_dataset(ncfile)
 
+        # print(ncdata.data_vars)
+
+        flag = 0
+
         # Convert oxygen data to umol/kg if not already done
-        try:
-            oxygen = ncdata.DOXMZZ01.data
-        except AttributeError:
-            # Convert data from mL/L to umol/kg
-            print('Converting oxygen data from mL/L to umol/kg')
-            oxygen = mL_L_to_umol_kg(ncdata.DOXYZZ01)
+        if var == 'DOXMZZ01':
+            try:
+                var_values = ncdata[var].data
+            except AttributeError:
+                # Convert data from mL/L to umol/kg
+                print('Converting oxygen data from mL/L to umol/kg')
+                var_values = mL_L_to_umol_kg(ncdata.DOXYZZ01.data)
+        elif var == 'TEMPS901' or var == 'PSALST01':
+            # Need unit conversions?
+            try:
+                var_values = ncdata[var].data
+            except AttributeError:
+                print(var, 'not available in file', basename(ncfile))
+                # Want to skip to next iteration
+                flag += 1
+
+        if flag == 1:
+            # Skip to next iteration
+            continue
 
         # Initialize dataframe to concatenate to df_out
         df_add = pd.DataFrame()
@@ -85,7 +114,7 @@ def ios_wp_to_vvd0(nclist):
         df_add['Longitude'] = np.repeat(ncdata.longitude.data, len(ncdata.depth.data))
         df_add['Depth_m'] = ncdata.depth.data
         df_add['Depth_flag'] = np.ones(len(ncdata.depth.data), dtype=int)
-        df_add['Value'] = oxygen
+        df_add['Value'] = var_values
         df_add['Source_flag'] = np.ones(len(ncdata.depth.data), dtype=int)
 
         # Concatenate to df_out
@@ -95,17 +124,18 @@ def ios_wp_to_vvd0(nclist):
 
 
 # NODC data
-def nodc_to_vvd0(ncdata, instrument='BOT', counter=0):
+def nodc_to_vvd0(ncdata, instrument='BOT', var='Oxygen', counter=0):
     # Transfer NODC data to value vs depth format
     # Add duplicate flags at a later time
+    # var: Oxygen,
 
     df_out = pd.DataFrame()
 
-    profile_number = np.zeros(len(ncdata.Oxygen.data), dtype=int)
-    cruise_number = np.repeat('XXXXXXXX', len(ncdata.Oxygen.data))
-    date_string = np.repeat('YYYYMMDDhhmmss', len(ncdata.Oxygen.data))
-    latitude = np.repeat(0., len(ncdata.Oxygen.data))
-    longitude = np.repeat(0., len(ncdata.Oxygen.data))
+    profile_number = np.zeros(len(ncdata[var].data), dtype=int)
+    cruise_number = np.repeat('XXXXXXXX', len(ncdata[var].data))
+    date_string = np.repeat('YYYYMMDDhhmmss', len(ncdata[var].data))
+    latitude = np.repeat(0., len(ncdata[var].data))
+    longitude = np.repeat(0., len(ncdata[var].data))
 
     start_ind = 0
     for i in range(len(ncdata.Oxygen_row_size.data)):
@@ -143,8 +173,8 @@ def nodc_to_vvd0(ncdata, instrument='BOT', counter=0):
     df_out['Longitude'] = longitude
     df_out['Depth_m'] = ncdata.z.data
     df_out['Depth_flag'] = ncdata.z_WODflag.data
-    df_out['Value'] = ncdata.Oxygen.data
-    df_out['Source_flag'] = ncdata.Oxygen_WODflag.data
+    df_out['Value'] = ncdata[var].data
+    df_out['Source_flag'] = ncdata['{}_WODflag'.format(var)].data
 
     return df_out, counter
 
@@ -302,29 +332,35 @@ ios_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_forma
            'IOS_CIOOS\\IOS_BOT_Profiles_Oxy_19910101_20201231.nc'
 ios_data = open_dataset(ios_file)
 
-ios_df = ios_to_vvd0(ios_data)
+ios_df = ios_to_vvd0(ios_data, instrument='BOT', var='DOXMZZ01')
 
 ios_df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
               'value_vs_depth\\IOS_BOT_Oxy_1991_2020_value_vs_depth_0.csv'
 
 ios_df.to_csv(ios_df_name, index=False)
 
-ios_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\IOS_CIOOS\\'
+# CTD data
+ios_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+          'source_format\\IOS_CIOOS\\'
 ios_ctd = glob.glob(ios_dir + 'IOS_CTD_Profiles_Oxy*.nc')
 ios_ctd.sort()
 
 # ios_ctd_df = pd.DataFrame()
 
-years = [(1991, 1995), (1995, 2000), (2000, 2005), (2005, 2010), (2010, 2015), (2015, 2020)]
+years = [(1991, 1995), (1995, 2000), (2000, 2005), (2005, 2010), (2010, 2015),
+         (2015, 2020)]
+
+outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+         'value_vs_depth\\1_original\\'
+
 for i in trange(len(ios_ctd)):
-    df_add = ios_to_vvd0(open_dataset(ios_ctd[i]), instrument='CTD')
-    fname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-            'value_vs_depth\\IOS_CTD_Oxy_{}_{}_value_vs_depth_0.csv'.format(
+    ncin = open_dataset(ios_ctd[i])
+    df_add = ios_to_vvd0(ncin, instrument='CTD', var='TEMPS901')  # 'OXMZZ01'
+    fname = 'IOS_CTD_Oxy_{}_{}_value_vs_depth_0.csv'.format(
         years[i][0], years[i][1])
 
-    df_add.to_csv(fname, index=False)
+    df_add.to_csv(outdir + fname, index=False)
 
-    # ios_ctd_df = pd.concat([ios_ctd_df, df_add])
 
 # ios_ctd_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 #                'value_vs_depth\\IOS_CTD_Oxy_1991_2020_value_vs_depth_0.csv'
@@ -343,7 +379,8 @@ wp_list += glob.glob(wp_dir + '*.bot.nc', recursive=False)
 
 # nc = open_dataset(wp_list[0])
 
-df = ios_wp_to_vvd0(wp_list)
+# vars: TEMPS901, DOXMZZ01, PSALST01
+df = ios_wp_to_vvd0(wp_list, var='TEMPS901')
 
 outname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
           'IOS_WP_Oxy_1991_2020_value_vs_depth_0.csv'
