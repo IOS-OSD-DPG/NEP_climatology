@@ -29,14 +29,14 @@ def ios_to_vvd0(ncdata, instrument='BOT', var='DOXMZZ01'):
     # Check that the variable is in ncdata
     try:
         var_values = ncdata[var].data
-    except AttributeError:
-        print('Variable', var, 'not in dataset')
+    except KeyError:
+        print('Warning: Variable', var, 'not in dataset')
         return None
 
     num = 1
     # Skip the first profile since its number is already zero
     for j in range(1, len(unique)):
-        if j == len(unique):
+        if j == len(unique) - 1:
             end_prof_ind = None
         else:
             # Pandas indexes to inclusive end
@@ -77,6 +77,7 @@ def ios_wp_to_vvd0(nclist, var='DOXMZZ01'):
         # Open the netCDF file
         ncdata = open_dataset(ncfile)
 
+        # print(basename(ncfile))
         # print(ncdata.data_vars)
 
         flag = 0
@@ -85,16 +86,22 @@ def ios_wp_to_vvd0(nclist, var='DOXMZZ01'):
         if var == 'DOXMZZ01':
             try:
                 var_values = ncdata[var].data
-            except AttributeError:
+            except KeyError:
                 # Convert data from mL/L to umol/kg
                 print('Converting oxygen data from mL/L to umol/kg')
-                var_values = mL_L_to_umol_kg(ncdata.DOXYZZ01.data)
+                try:
+                    var_values = mL_L_to_umol_kg(ncdata.DOXYZZ01.data)
+                except AttributeError:
+                    print('Warning: Variable DOXYZZ01 not present in file',
+                          basename(ncfile))
+                    flag += 1
         elif var == 'TEMPS901' or var == 'PSALST01':
             # Need unit conversions?
             try:
                 var_values = ncdata[var].data
-            except AttributeError:
-                print(var, 'not available in file', basename(ncfile))
+            except KeyError:
+                print('Warning: Variable', var, 'not available in file',
+                      basename(ncfile))
                 # Want to skip to next iteration
                 flag += 1
 
@@ -127,7 +134,7 @@ def ios_wp_to_vvd0(nclist, var='DOXMZZ01'):
 def nodc_to_vvd0(ncdata, instrument='BOT', var='Oxygen', counter=0):
     # Transfer NODC data to value vs depth format
     # Add duplicate flags at a later time
-    # var: Oxygen,
+    # var: Oxygen, Salinity, Temperature
 
     df_out = pd.DataFrame()
 
@@ -138,29 +145,24 @@ def nodc_to_vvd0(ncdata, instrument='BOT', var='Oxygen', counter=0):
     longitude = np.repeat(0., len(ncdata[var].data))
 
     start_ind = 0
-    for i in range(len(ncdata.Oxygen_row_size.data)):
+    for i in range(len(ncdata['{}_row_size'.format(var)].data)):
+        end_ind = start_ind + int(ncdata['{}_row_size'.format(var)].data[i])
 
-        profile_number[start_ind: start_ind + int(ncdata.Oxygen_row_size.data[i])
-                       ] = counter
+        profile_number[start_ind: end_ind] = counter
 
-        cruise_number[start_ind: start_ind + int(ncdata.Oxygen_row_size.data[i])
+        # Need .astype(str) to get rid of the b'' chars
+        cruise_number[start_ind: end_ind
                       ] = ncdata.WOD_cruise_identifier.data[i].astype(str)
 
-        # print(cruise_number)
-
-        date_string[start_ind: start_ind + int(ncdata.Oxygen_row_size.data[i])
+        date_string[start_ind: end_ind
                     ] = pd.to_datetime(ncdata.time.data[i]).strftime('%Y%m%d%H%M%S')
 
-        latitude[start_ind: start_ind + int(ncdata.Oxygen_row_size.data[i])
-                 ] = ncdata.lat.data[i].astype(str)
+        latitude[start_ind: end_ind] = ncdata.lat.data[i].astype(float)
 
-        longitude[start_ind: start_ind + int(ncdata.Oxygen_row_size.data[i])
-                  ] = ncdata.lon.data[i].astype(str)
-
-        # print(longitude)
+        longitude[start_ind: end_ind] = ncdata.lon.data[i].astype(float)
 
         counter += 1
-        start_ind = start_ind + int(ncdata.Oxygen_row_size.data[i])
+        start_ind = end_ind
 
         # print(start_ind)
 
@@ -220,7 +222,7 @@ def mmol_m3_to_umol_kg(oxygen, prac_sal, temp, press, lat, lon):
     return oxygen_out
 
 
-def meds_to_vvd0(df_meds, instrument='BOT'):
+def meds_to_vvd0(df_meds, instrument='BOT', var='DOXY', counter=0):
     # Just convert to value-vs-depth format without adding duplicate flags
     # Add duplicate flags at a later step
 
@@ -229,13 +231,13 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
 
     unique = np.unique(df_meds.RowNum, return_index=True)[1]
 
-    counter = 1
-    for i in range(1, len(unique) - 1):
-        df_meds.loc[unique[i]:unique[i + 1], 'Profile_number'] = counter
+    for i in range(len(unique)):
+        if i == len(unique) - 1:
+            end_ind = None
+        else:
+            end_ind = unique[i + 1]
+        df_meds.loc[unique[i]:end_ind, 'Profile_number'] = counter
         counter += 1
-
-    # Don't forget last profile
-    df_meds.loc[unique[-1]:, 'Profile_number'] = counter
 
     # Add pandas date string column to df_meds, as before
     df_meds['Hour'] = df_meds.Time.astype(str).apply(
@@ -262,9 +264,15 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
         df_meds.loc[~pressure_subsetter, 'Lat'].values)
 
     # Unit conversions for oxygen from millimol/m^3 to umol/kg
-    df_meds['Oxygen_umol'] = mmol_m3_to_umol_kg(df_meds['DOXY'], df_meds['PSAL'],
-                                                df_meds['TEMP'], df_meds['Press_dbar'],
-                                                df_meds['Lat'], df_meds['Lon'])
+    if var == 'DOXY':
+        df_meds['Value_out'] = mmol_m3_to_umol_kg(df_meds['DOXY'], df_meds['PSAL'],
+                                                  df_meds['TEMP'], df_meds['Press_dbar'],
+                                                  df_meds['Lat'], df_meds['Lon'])
+        df_meds['Value_flag'] = df_meds['{}_flag'.format(var)]
+    elif var == 'TEMP' or var == 'PSAL':
+        # Units are degrees Celsius
+        df_meds['Value_out'] = df_meds['ProfParm']
+        df_meds['Value_flag'] = df_meds['PP_flag']
 
     # Write to dataframe to output
     df_out = pd.DataFrame()
@@ -276,10 +284,10 @@ def meds_to_vvd0(df_meds, instrument='BOT'):
     df_out['Longitude'] = -df_meds['Lon']  # Convert to positive East
     df_out['Depth_m'] = df_meds['Depth_m']
     df_out['Depth_flag'] = df_meds['D_P_flag']
-    df_out['Value'] = df_meds['Oxygen_umol']
-    df_out['Source_flag'] = df_meds['DOXY_flag']
+    df_out['Value'] = df_meds['Value_out']
+    df_out['Source_flag'] = df_meds['Value_flag']
 
-    return df_out
+    return df_out, counter
 
 
 def get_pdt_df():
@@ -329,21 +337,25 @@ pdt = get_pdt_df()
 
 # IOS data
 ios_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
-           'IOS_CIOOS\\IOS_BOT_Profiles_Oxy_19910101_20201231.nc'
+           'IOS_CIOOS\\IOS_BOT_Profiles_Sal_19910101_20201231.nc'
 ios_data = open_dataset(ios_file)
 
-ios_df = ios_to_vvd0(ios_data, instrument='BOT', var='DOXMZZ01')
+# TEMPS901, PSALST01, DOXMZZ01
+ios_df = ios_to_vvd0(ios_data, instrument='BOT', var='PSALST01')
 
 ios_df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-              'value_vs_depth\\IOS_BOT_Oxy_1991_2020_value_vs_depth_0.csv'
+              'value_vs_depth\\1_original\\' \
+              'IOS_BOT_Sal_1991_2020_value_vs_depth_0.csv'
 
 ios_df.to_csv(ios_df_name, index=False)
 
 # CTD data
 ios_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
           'source_format\\IOS_CIOOS\\'
-ios_ctd = glob.glob(ios_dir + 'IOS_CTD_Profiles_Oxy*.nc')
-ios_ctd.sort()
+# ios_files = glob.glob(ios_dir + 'IOS_CTD_Profiles_Temp*.nc')
+ios_files = glob.glob(ios_dir + 'IOS_CTD_Profiles_Sal*.nc')
+ios_files.sort()
+print(len(ios_files))
 
 # ios_ctd_df = pd.DataFrame()
 
@@ -353,10 +365,10 @@ years = [(1991, 1995), (1995, 2000), (2000, 2005), (2005, 2010), (2010, 2015),
 outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
          'value_vs_depth\\1_original\\'
 
-for i in trange(len(ios_ctd)):
-    ncin = open_dataset(ios_ctd[i])
-    df_add = ios_to_vvd0(ncin, instrument='CTD', var='TEMPS901')  # 'OXMZZ01'
-    fname = 'IOS_CTD_Oxy_{}_{}_value_vs_depth_0.csv'.format(
+for i in trange(len(ios_files)):
+    ncin = open_dataset(ios_files[i])
+    df_add = ios_to_vvd0(ncin, instrument='CTD', var='PSALST01')  # 'DOXMZZ01'
+    fname = 'IOS_CTD_Sal_{}_{}_value_vs_depth_0.csv'.format(
         years[i][0], years[i][1])
 
     df_add.to_csv(outdir + fname, index=False)
@@ -371,19 +383,21 @@ for i in trange(len(ios_ctd)):
 ########################
 # IOS Water Properties data
 
-wp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\SHuntington\\'
+wp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+         'source_format\\SHuntington\\'
 
 wp_list = glob.glob(wp_dir + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
 
 wp_list += glob.glob(wp_dir + '*.bot.nc', recursive=False)
+print(len(wp_list))
 
 # nc = open_dataset(wp_list[0])
 
 # vars: TEMPS901, DOXMZZ01, PSALST01
-df = ios_wp_to_vvd0(wp_list, var='TEMPS901')
+df = ios_wp_to_vvd0(wp_list, var='PSALST01')
 
 outname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
-          'IOS_WP_Oxy_1991_2020_value_vs_depth_0.csv'
+          '1_original\\IOS_WP_Sal_1991_2020_value_vs_depth_0.csv'
 
 df.to_csv(outname, index=False)
 
@@ -401,25 +415,95 @@ osd_df = pd.DataFrame()
 prof_count_old = 0
 for i in trange(len(osd_files)):
     print(prof_count_old)
-    df_add, prof_count_new = nodc_to_vvd0(open_dataset(osd_files[i]), counter=prof_count_old)
+    df_add, prof_count_new = nodc_to_vvd0(open_dataset(osd_files[i]),
+                                          counter=prof_count_old)
     prof_count_old = prof_count_new
     osd_df = pd.concat([osd_df, df_add])
 
 osd_df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-              'value_vs_depth\\WOD_BOT_Oxy_1991_2020_value_vs_depth_0.csv'
+              'value_vs_depth\\1_original\\WOD_BOT_Oxy_1991_2020_value_vs_depth_0.csv'
 
 osd_df.to_csv(osd_df_name, index=False)
+
+# NODC PFL, GLD, CTD, OSD and DRB files for TS data (NOT Oxy)
+ts_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+         'source_format\\WOD_extracts\\'
+
+# Assemble files
+wod_var = 'Sal'  # Oxy, Temp, Sal
+osd_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*OSD.nc'.format(wod_var))
+osd_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*OSD.nc'.format(wod_var))
+
+ctd_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*CTD.nc'.format(wod_var))
+ctd_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*CTD.nc'.format(wod_var))
+
+drb_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*DRB.nc'.format(wod_var))
+drb_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*DRB.nc'.format(wod_var))  # empty
+
+pfl_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*PFL.nc'.format(wod_var))
+pfl_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*PFL.nc'.format(wod_var))  # empty
+
+gld_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*GLD.nc'.format(wod_var))
+gld_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*GLD.nc'.format(wod_var))
+
+out_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+          'value_vs_depth\\1_original\\'
+
+# DO PFL SEPARATELY BECAUSE ITS BIG
+inst_names = ['OSD', 'CTD', 'DRB', 'GLD']
+inst_list = [osd_files, ctd_files, drb_files, gld_files]
+
+# Convert 'OSD', 'CTD', 'DRB', 'GLD' to vvd format
+for j in trange(len(inst_list)):
+    prof_count_old = 0
+    inst = inst_names[j]
+    inst_df = pd.DataFrame()
+
+    # Iterate through all files in each list
+    for ncfile in inst_list[j]:
+        data = open_dataset(ncfile)
+        df_add, prof_count_new = nodc_to_vvd0(data, instrument=inst,
+                                              var='Salinity',
+                                              counter=prof_count_old)
+        prof_count_old = prof_count_new
+        inst_df = pd.concat([inst_df, df_add])
+
+    # Export df to csv file
+    out_name = 'WOD_{}_{}_1991_2020_value_vs_depth_0.csv'.format(inst, wod_var)
+
+    inst_df.to_csv(out_dir + out_name, index=False)
+
+    # continue
+
+# Convert PFL to vvd format separately
+for f in pfl_files:
+    # Index the months the file covers from the file name
+    months = basename(f)[-10:-7]
+    inst = 'PFL'
+    data = open_dataset(f)
+    df_out = nodc_to_vvd0(data, instrument=inst, var='Salinity',
+                          counter=0)[0]
+    out_name = 'WOD_{}_{}_{}_1991_2020_value_vs_depth_0.csv'.format(inst, wod_var,
+                                                                    months)
+
+    df_out.to_csv(out_dir + out_name, index=False)
+
+    # continue
 
 ########################
 # MEDS data
 
-meds_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
-            'meds_data_extracts\\bo_extracts\\MEDS_19940804_19930816_BO_TSO_profiles_source.csv'
+# Start with O data
+meds_extracts_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                    'source_format\\meds_data_extracts\\'
 
-meds_data = pd.read_csv(meds_file)
+meds_TSO_file = meds_extracts_dir + \
+                'bo_extracts\\MEDS_19940804_19930816_BO_TSO_profiles_source.csv'
+
+meds_data = pd.read_csv(meds_TSO_file)
 
 # df_meds_vvd = meds_to_vvd(meds_data, pdt)
-df_meds_vvd0 = meds_to_vvd0(meds_data)
+df_meds_vvd0, count = meds_to_vvd0(meds_data)
 
 # Write output dataframe to csv file
 vvd0_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
@@ -427,6 +511,43 @@ vvd0_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 
 df_meds_vvd0.to_csv(vvd0_name, index=False)
 
+# TS data: BO, CD, XB (T only)
+
+meds_T_flist = glob.glob(meds_extracts_dir + '*_extracts\\*TEMP_profiles_source.csv')
+meds_S_flist = glob.glob(meds_extracts_dir + '*_extracts\\*PSAL_profiles_source.csv')
+
+# Initialize dataframes
+df_T = pd.DataFrame()
+df_S = pd.DataFrame()
+
+# Initialize profile number counter
+prof_count_old = 0
+
+for f in meds_S_flist:
+    # Get instrument and var type
+    inst = basename(f)[23:25]
+    if inst == 'BO':
+        inst = 'BOT'
+    elif inst == 'CD':  # CTD downcast
+        inst = 'CTD'
+    elif inst == 'XB':
+        inst = 'XBT'
+    # Get variable abbreviation
+    meds_var = basename(f)[26:30]
+    df_in = pd.read_csv(f)
+
+    df_add, prof_count_new = meds_to_vvd0(df_in, instrument=inst, var=meds_var,
+                                          counter=prof_count_old)
+    df_S = pd.concat([df_S, df_add])
+
+    prof_count_old = prof_count_new
+
+out_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+          'value_vs_depth\\1_original\\'
+
+out_name = 'MEDS_{}_1991_2020_value_vs_depth_0.csv'.format(meds_var)
+
+df_S.to_csv(out_dir + out_name, index=False)
 
 #####################################
 # Concatenate all dataframes together OR NOT BC OF SIZE ISSUES

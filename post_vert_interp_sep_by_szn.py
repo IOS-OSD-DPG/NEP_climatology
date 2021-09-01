@@ -2,9 +2,11 @@
 
 import pandas as pd
 import numpy as np
+from tqdm import trange
 
 infile = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\9_vertical_interp\\Oxy_1991_2020_value_vs_depth_rr.csv'
+         'value_vs_depth\\10_replicate_check\\' \
+         'Oxy_1991_2020_value_vs_depth_rr_rep_val_check.csv'
 
 df_in = pd.read_csv(infile)
 
@@ -17,7 +19,7 @@ df_fall = pd.DataFrame()
 # (index of the first measurement of each profile in the vvd df)
 prof_start_ind = np.unique(df_in.Profile_number, return_index=True)[1]
 
-for i in range(len(prof_start_ind)):
+for i in trange(len(prof_start_ind)):
     # Set profile end index
     if i == len(prof_start_ind) - 1:
         end_ind = len(df_in)
@@ -45,7 +47,7 @@ for i in range(len(prof_start_ind)):
 # Export dfs
 
 outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\9_vertical_interp\\by_season\\'
+         'value_vs_depth\\10_replicate_check\\by_season\\'
 
 df_winter.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_1_3.csv', index=False)
 df_spring.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_4_6.csv', index=False)

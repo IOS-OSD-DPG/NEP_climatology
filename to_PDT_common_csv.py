@@ -13,16 +13,16 @@ ios_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\IOS_CIOOS\\'
 ios_files = glob.glob(ios_path + '*Oxy*.nc', recursive=False)
 ios_files.sort()
 
-ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
-              'SHuntington\\'
+ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+              'source_format\\SHuntington\\'
 # Get bot files
 ios_wp_files = glob.glob(ios_wp_path + '*.bot.nc', recursive=False)
 # Get ctd files
 ios_wp_files += glob.glob(ios_wp_path + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
 
 
-nodc_nocad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
-                  'WOD_extracts\\Oxy_WOD_May2021_extracts\\'
+nodc_nocad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                  'source_format\\WOD_extracts\\Oxy_WOD_May2021_extracts\\'
 # nodc_nocad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/Oxy_WOD_May2021_extracts/'
 nodc_nocad_files = glob.glob(nodc_nocad_path + 'Oxy*OSD.nc', recursive=False)
 nodc_nocad_files.sort()
@@ -142,6 +142,7 @@ df_out.to_csv(outname, index=False)
 ################
 ### NODC WOD ###
 
+
 def nodc_to_common_csv(nodc_files, sourcetype):
     colnames = ["Source_data_file_name", "Institute", "Cruise_number",
                 "Instrument_type", "Date_string", "Latitude",
@@ -162,10 +163,12 @@ def nodc_to_common_csv(nodc_files, sourcetype):
             nodc_nocad_data.institution, len(nodc_nocad_data.casts.data))
         
         # Get instrument type from file name
-        # if 'CTD' in f:
-        #     inst = 'CTD'
-        if 'OSD' in f:
+        if 'CTD' in f:
+            inst = 'CTD'
+        elif 'OSD' in f:
             inst = 'BOT'
+        elif 'PFL' in f:  # Profiling float (Argo) -- only temp (and sal?) data
+            inst = 'PFL'
         
         nodc_nocad_instrument_array = np.repeat(inst, len(nodc_nocad_data.casts.data))
         
@@ -198,14 +201,6 @@ def nodc_to_common_csv(nodc_files, sourcetype):
     output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\'
     nodc_name = 'NODC_{}_Profiles_Oxy_1991_2020.csv'.format(sourcetype)
     nodc_df.to_csv(output_folder + nodc_name)
-    
-    # # Flag duplicate rows in the dataframe
-    # nodc_df_edr = nodc_df.copy()
-    # nodc_df_edr['Duplicate_row'] = nodc_df.duplicated()
-    #
-    # # dr stands for duplicate rows
-    # nodc_nocad_edr_name = nodc_name.replace('.', '_dr.')
-    # nodc_df_edr.to_csv(output_folder + nodc_nocad_edr_name)
     
     return
 

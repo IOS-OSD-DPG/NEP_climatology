@@ -2,9 +2,8 @@
 
 * Stats checks
     - Separate 5-standard-deviation checks for each season
-    - Separate 5-standard-deviation checks for above and including 50m
-    - Or, separate 5-standard-deviation checks for each standard level?
-    - Also need to decide whether to use 5-degree squares or not
+    - Separate 5-standard-deviation checks for each standard level?
+    - Use 5-degree squares
 """
 
 import pandas as pd

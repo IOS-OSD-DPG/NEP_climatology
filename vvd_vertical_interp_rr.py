@@ -108,13 +108,16 @@ for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
     values = np.array(df_vvd.loc[indices, 'Value'])
 
     # Re-sort the values if the profile is an upcast instead of a downcast
-    if np.all(np.diff(depths)) < 0:
+    # In this case, depths would be getting smaller
+    if np.all(np.diff(depths) < 0):
+        print('Warning: profile number', df_vvd.loc[indices[0], 'Profile_number'],
+              'is an upcast')
         # Sort the depths in increasing order
         depths_sort_inds = depths.argsort()
         # Index depths by increasing order
         depths = depths[depths_sort_inds]
         # Index values by the increasing order of the depths
-        values = depths[depths_sort_inds]
+        values = values[depths_sort_inds]
 
     # Extract the subset of standard levels to use for vertical interpolation
     # The last element in depths is the deepest one
@@ -128,7 +131,10 @@ for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
         sl_subsetter = np.where((sl_arr >= depths[0]) & (sl_arr <= depths[-1]))[0]
 
     # Skip computations if no standard level matches
-    if len(sl_subsetter) > 0:
+    if len(sl_subsetter) == 0:
+        print('Warning: No standard level matches for profile number',
+              df_vvd.loc[indices[0], 'Profile_number'])
+    elif len(sl_subsetter) > 0:
         # z_out is the standard levels to interpolate to in Python array format
         z_out = sl_arr[sl_subsetter]
 
@@ -182,7 +188,7 @@ df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
             'value_vs_depth\\9_vertical_interp\\'
 
 # 'rr' stands for Reiniger-Ross vertical interpolation
-df_outname = 'Oxy_1991_2020_value_vs_depth_rr.csv'
+df_outname = 'Oxy_1991_2020_value_vs_depth_rr_v2.csv'
 
 df_out.to_csv(df_outdir + df_outname, index=False)
 
@@ -191,7 +197,7 @@ df_out.to_csv(df_outdir + df_outname, index=False)
 prof_drop_arr = np.setdiff1d(df_vvd.Profile_number, df_out.Profile_number)
 
 df_prof_drop = pd.Series(prof_drop_arr, name='Profile_number')
-series_name = 'Oxy_1991_2020_rr_prof_drop.csv'
+series_name = 'Oxy_1991_2020_rr_prof_drop_v2.csv'
 df_prof_drop.to_csv(df_outdir + series_name, index=False)
 
 
@@ -208,7 +214,7 @@ num_prof_out = len(np.unique(df_out.Profile_number))
 
 print(num_prof_in, num_prof_out, num_prof_in-num_prof_out)
 
-"""
+""" Version 1
 100%|██████████| 29118/29118 [46:30<00:00, 10.43it/s]
 print(len(df_out))
 835574
@@ -218,6 +224,16 @@ num_prof_in = len(np.unique(df_vvd.Profile_number, return_index=True)[1])
 num_prof_out = len(np.unique(df_out.Profile_number, return_index=True)[1])
 print(num_prof_in, num_prof_out, num_prof_in-num_prof_out)
 28485 28019 466
+
+Version 2: More profiles were retained through this run
+print(len(df_vvd))
+8255554
+print(len(df_out))
+861891
+num_prof_in = len(np.unique(df_vvd.loc[:, 'Profile_number']))
+num_prof_out = len(np.unique(df_out.Profile_number))
+print(num_prof_in, num_prof_out, num_prof_in-num_prof_out)
+28485 28308 177
 """
 
 print(df_out.loc[:, ['SL_depth_m', 'SL_value']])

@@ -30,8 +30,9 @@ for i in range(len(series_drop)):  # 20
     if len(prof) > 1:
         list_len_gt_1.append(series_drop.loc[i, 'Profile_number'])
 
-print(len(series_drop))  # 185 profiles
-print(len(list_len_gt_1))  # Number of dropped profiles with length > 1 == 11 profiles
+print(len(series_drop))  # 185 profiles v1; 177 profiles v2
+print(len(list_len_gt_1))
+# Number of dropped profiles with length > 1 == 11 profiles v1; 3 profiles v2
 
 for num in list_len_gt_1:
     # Find the profile in the observed level data
