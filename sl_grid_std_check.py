@@ -175,7 +175,7 @@ def get_standard_levels():
     return sl_arr
 
 
-def sl_std_5deg_check(vvd_path, out_dir, szn):
+def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
     # Compute 5-degree square statistics in the Northeast Pacific Ocean
 
     # vvd_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
@@ -197,7 +197,9 @@ def sl_std_5deg_check(vvd_path, out_dir, szn):
     # prof_start_ind = np.unique(vvd.Profile_number, return_index=True)[1]
 
     # Initialize column to hold stdev flag in vvd
-    vvd['SD_flag'] = np.zeros(len(vvd), dtype='int32')
+    # Initialize with -9 to help filter out measurements that are
+    # completely outside the 2D square grid (don't want for spatial interp!)
+    vvd['SD_flag'] = np.repeat(-9, len(vvd))  # , dtype='int32'
 
     # Initialize dataframes to hold square statistics for each square cell
 
@@ -268,29 +270,33 @@ def sl_std_5deg_check(vvd_path, out_dir, szn):
                                          (vvd.Latitude <= yi[j + 1]))[0]
 
                 # Subset the vvd by profile start indices and by subsetter
-                vvd_subset = vvd.loc[subsetter_vvd]
+                vvd_subset1 = vvd.loc[subsetter_vvd]
 
                 # Calculate the number of profiles in the selected 5-degree square
                 # Output to a file at the end
-                sq_num_of_profiles = len(vvd_subset)
+                sq_num_of_profiles = len(vvd_subset1)
+
+                # print('Computed number of profiles in 5-degree square')
 
                 # Write number of profiles to df
-                sq_nval_df.loc[subsetter_sd_multiplier, k + 2] = sq_num_of_profiles
+                sq_nval_df.loc[subsetter_sd_multiplier, stats_lvl] = sq_num_of_profiles
 
                 # Check if the square cell is void of observations
-                if len(vvd_subset) == 0:
-                    # print('Warning: Zero measurements in cell with',
-                    #       float(sd_multiplier_df.loc[
-                    #                 subsetter_sd_multiplier, 'Latitude']), 'latitude,',
-                    #       float(sd_multiplier_df.loc[
-                    #                 subsetter_sd_multiplier, 'Longitude']),
-                    #       'longitude, and', sl_arr[k], 'm depth')
+                if len(vvd_subset1) == 0:
+                    if verbose:
+                        print('Warning: Zero measurements in cell with',
+                              float(sd_multiplier_df.loc[
+                                        subsetter_sd_multiplier, 'Latitude']),
+                              'latitude,',
+                              float(sd_multiplier_df.loc[
+                                        subsetter_sd_multiplier, 'Longitude']),
+                              'longitude, and', sl_arr[k], 'm depth')
 
                     # Write -99s or NaNs to stats dataframes
-                    sq_mean1_df.loc[subsetter_sd_multiplier, stats_lvl] = -99
-                    sq_sd1_df.loc[subsetter_sd_multiplier, stats_lvl] = -99
-                    sq_mean2_df.loc[subsetter_sd_multiplier, stats_lvl] = -99
-                    sq_sd2_df.loc[subsetter_sd_multiplier, stats_lvl] = -99
+                    sq_mean1_df.loc[subsetter_sd_multiplier, stats_lvl] = np.nan
+                    sq_sd1_df.loc[subsetter_sd_multiplier, stats_lvl] = np.nan
+                    sq_mean2_df.loc[subsetter_sd_multiplier, stats_lvl] = np.nan
+                    sq_sd2_df.loc[subsetter_sd_multiplier, stats_lvl] = np.nan
 
                     # Skip to next iteration
                     continue
@@ -299,8 +305,8 @@ def sl_std_5deg_check(vvd_path, out_dir, szn):
                 # in the 5-degree square
 
                 # Calculate the mean and stdev of the values in the square
-                sq_mean1 = np.mean(vvd_subset.SL_value)
-                sq_sd1 = np.std(vvd_subset.SL_value)
+                sq_mean1 = np.mean(vvd_subset1.SL_value)
+                sq_sd1 = np.std(vvd_subset1.SL_value)
 
                 # Write these to the appropriate dfs
                 sq_mean1_df.loc[subsetter_sd_multiplier, stats_lvl] = sq_mean1
@@ -308,28 +314,64 @@ def sl_std_5deg_check(vvd_path, out_dir, szn):
 
                 # Find where standard level values are outside the range
                 # (mean - multiplier * stdev, mean + multiplier * stdev)
-                std_flag1_raise_where = np.where(
-                    (vvd_subset.SL_value > sq_mean1 + sd_multiplier * sq_sd1) |
-                    (vvd_subset.SL_value < sq_mean1 - sd_multiplier * sq_sd1))[0]
+                sd_flag1_raise_where = np.where(
+                    (vvd.SL_value > sq_mean1 + sd_multiplier * sq_sd1) |
+                    (vvd.SL_value < sq_mean1 - sd_multiplier * sq_sd1))[0]
+
+                # Intersect with the value vs depth subsetter of lat/lon/depth
+                sd_flag1_raise_where = np.intersect1d(subsetter_vvd,
+                                                      sd_flag1_raise_where)
 
                 # Add flag to vvd
-                vvd.loc[std_flag1_raise_where, 'SD_flag'] = 1
+                vvd.loc[sd_flag1_raise_where, 'SD_flag'] = 1
 
-                # Repeat flagging without first flagged values
-                sq_mean2 = np.mean(vvd_subset.SL_value[vvd_subset.SD_flag == 0])
-                sq_sd2 = np.std(vvd_subset.SL_value[vvd_subset.SD_flag == 0])
+                # Want to see what values are being flagged
+                if len(sd_flag1_raise_where) == 0:
+                    sq_mean2 = sq_mean1
+                    sq_sd2 = sq_sd1
 
-                # Write these to the appropriate dfs
+                    # sd_flag2_raise_where = sd_flag1_raise_where
+                else:
+                    # There were value(s) outside the sd range
+                    if verbose:
+                        print('Values outside sd range')
+                        print(stats_lvl, 'Mean1:', sq_mean1, 'SD1:', sq_sd1)
+                        print('SL_value(s):',
+                              np.array(vvd.loc[sd_flag1_raise_where, 'SL_value']))
+
+                    # Repeat flagging without first flagged values
+                    # Need to re-extract subset from vvd after vvd was updated
+                    vvd_subset2 = vvd.loc[subsetter_vvd]
+                    sq_mean2 = np.mean(vvd_subset2.SL_value[vvd_subset2.SD_flag == 0])
+                    sq_sd2 = np.std(vvd_subset2.SL_value[vvd_subset2.SD_flag == 0])
+
+                    # Find where standard level values are outside sd range
+                    # that have not already been flagged in the first run
+                    sd_flag2_raise_where = np.where(
+                        (vvd.SD_flag == 0) &
+                        ((vvd.SL_value > sq_mean2 + sd_multiplier * sq_sd2) |
+                         (vvd.SL_value < sq_mean2 - sd_multiplier * sq_sd2)))[0]
+
+                    # Intersect with the value vs depth subsetter of lat/lon/depth
+                    sd_flag2_raise_where = np.intersect1d(subsetter_vvd,
+                                                          sd_flag2_raise_where)
+
+                    # # Check if flag1 and flag2 overlap
+                    # if len(np.setdiff1d(
+                    #         sd_flag2_raise_where,
+                    #         sd_flag1_raise_where)) < len(sd_flag2_raise_where):
+                    #     # This means that flag2 overlaps with flag1
+                    #     print('Flags overlap')
+
+                    # Flag as 1 or 2?
+                    vvd.loc[sd_flag2_raise_where, 'SD_flag'] = 2
+
+                if verbose:
+                    print('Computed means and standard deviations')
+
+                # Write mean2 and stdev2 to the appropriate dfs
                 sq_mean2_df.loc[subsetter_sd_multiplier, stats_lvl] = sq_mean2
                 sq_sd2_df.loc[subsetter_sd_multiplier, stats_lvl] = sq_sd2
-
-                # Find where standard level values are outside sd range
-                std_flag2_raise_where = np.where(
-                    (vvd_subset.SL_value > sq_mean2 + sd_multiplier * sq_sd2) |
-                    (vvd_subset.SL_value < sq_mean2 - sd_multiplier * sq_sd2))[0]
-
-                # Flag as 1 or 2?
-                vvd.loc[std_flag2_raise_where, 'SD_flag'] = 2
 
     out_subdir = out_dir + 'nprof_mean_sd\\'
     if not exists(out_subdir):
@@ -347,6 +389,21 @@ def sl_std_5deg_check(vvd_path, out_dir, szn):
     return vvd
 
 
+def run_sl_sd_check(file_path):
+    # Get season names
+    szn_abbrev = file_path[-7:-4]
+    df_out = sl_std_5deg_check(file_path, output_dir, szn_abbrev)
+
+    # See printouts below
+    print(len(df_out))
+    print(len(df_out.loc[df_out.SD_flag == 0]))
+    print(len(df_out.loc[df_out.SD_flag == 1]))
+    print(len(df_out.loc[df_out.SD_flag == 2]))
+    print()
+
+    return df_out
+
+
 in_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
          'value_vs_depth\\10_replicate_check\\by_season\\'
 
@@ -359,7 +416,7 @@ infiles.sort()
 df = pd.read_csv(infiles[0])
 
 # STANDARD DEVIATION CHECKS
-path_list = sl_std_check_basic(df)
+# path_list = sl_std_check_basic(df)
 
 output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
              'value_vs_depth\\11_stats_check\\'
@@ -367,19 +424,12 @@ output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 for f in infiles:
     print(basename(f))
 
-    # Get season names
-    szn_abbrev = f[-7:-4]
-    dfout = sl_std_5deg_check(f, output_dir, szn_abbrev)
-
-    # See printout below -- I am concerned
-    print(len(dfout))
-    print(len(dfout.loc[dfout.SD_flag == 0]))
-    print(len(dfout.loc[dfout.SD_flag == 1]))
-    print(len(dfout.loc[dfout.SD_flag == 2]))
-    print()
+    dfout = run_sl_sd_check(f)
 
     # Remove values that failed the sd check
     dfout_drop = deepcopy(dfout.loc[dfout.SD_flag == 0])
+
+    dfout_drop.drop(columns='SD_flag', inplace=True)
 
     dfout_drop_name = basename(f).replace('.', '_sd_done.')
 
@@ -387,7 +437,7 @@ for f in infiles:
 
     # continue
 
-"""Output:
+"""Output Sept 2, 2021 WRONG:
 Oxy_1991_2020_value_vs_depth_rr_AMJ.csv
 100%|██████████| 9/9 [00:46<00:00,  5.17s/it]
 270167
@@ -399,8 +449,8 @@ Oxy_1991_2020_value_vs_depth_rr_JAS.csv
 100%|██████████| 9/9 [00:54<00:00,  6.07s/it]
 296690
 296215
-0 WHYYY
-475
+0 
+475 WHYYY
 
 Oxy_1991_2020_value_vs_depth_rr_JFM.csv
 100%|██████████| 9/9 [00:42<00:00,  4.69s/it]
@@ -413,6 +463,36 @@ Oxy_1991_2020_value_vs_depth_rr_OND.csv
 100%|██████████| 9/9 [00:34<00:00,  3.86s/it]
 141805
 141407
-0 WHYYY
-398
+0 
+398 WHYYY
+"""
+
+"""Sept. 3, 2021:
+Oxy_1991_2020_value_vs_depth_rr_AMJ.csv
+100%|██████████| 9/9 [01:04<00:00,  7.21s/it]
+270167
+267693
+1634
+840
+
+Oxy_1991_2020_value_vs_depth_rr_JAS.csv
+100%|██████████| 9/9 [01:20<00:00,  8.94s/it]
+296690
+294517
+1524
+649
+
+Oxy_1991_2020_value_vs_depth_rr_JFM.csv
+100%|██████████| 9/9 [00:43<00:00,  4.83s/it]
+153229
+151539
+1089
+601
+
+Oxy_1991_2020_value_vs_depth_rr_OND.csv
+100%|██████████| 9/9 [00:40<00:00,  4.48s/it]
+141805
+140743
+781
+281
 """
