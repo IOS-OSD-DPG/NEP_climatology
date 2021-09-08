@@ -13,7 +13,7 @@ from os.path import basename, exists
 from os import mkdir
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
-import csv
+from get_standard_levels import get_standard_levels
 from tqdm import trange
 from copy import deepcopy
 
@@ -152,30 +152,7 @@ def sl_std_check_basic(df_in):
     return outdir + outname, outdir + outname2
 
 
-def get_standard_levels():
-    # Return array of standard levels from the standard levels text file
-
-    # Import standard levels file
-    file_sl = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
-              'WOA_Standard_Depths.txt'
-
-    # Initialize list with each element being a row in file_sl
-    sl_list = []
-    with open(file_sl, 'r') as infile:
-        reader = csv.reader(infile)
-        for row in reader:
-            sl_list += row
-
-    # Remove empty elements: '' and ' '
-    # Gotta love list comprehension
-    sl_list_v2 = [int(x.strip(' ')) for x in sl_list if x not in ['', ' ']]
-
-    # Convert list to array
-    sl_arr = np.array(sl_list_v2)
-    return sl_arr
-
-
-def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
+def sl_std_5deg_check(vvd_path, sl_path, out_dir, szn, verbose=False):
     # Compute 5-degree square statistics in the Northeast Pacific Ocean
 
     # vvd_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
@@ -191,7 +168,7 @@ def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
     sd_multiplier_df = pd.read_csv(sd_multiplier_file, skiprows=1)
 
     # Standard level file -- returns an array of the standard levels
-    sl_arr = get_standard_levels()
+    sl_arr = get_standard_levels(sl_path)
 
     # # Index vvd by unique profile number
     # prof_start_ind = np.unique(vvd.Profile_number, return_index=True)[1]
@@ -389,10 +366,10 @@ def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
     return vvd
 
 
-def run_sl_sd_check(file_path):
+def run_sl_sd_check(file_path, sl_path):
     # Get season names
     szn_abbrev = file_path[-7:-4]
-    df_out = sl_std_5deg_check(file_path, output_dir, szn_abbrev)
+    df_out = sl_std_5deg_check(file_path, sl_path, output_dir, szn_abbrev)
 
     # See printouts below
     print(len(df_out))
@@ -413,10 +390,13 @@ infiles = glob.glob(in_dir + '*.csv')
 infiles.sort()
 
 # Do separate calculations for each season
-df = pd.read_csv(infiles[0])
+# df = pd.read_csv(infiles[0])
 
 # STANDARD DEVIATION CHECKS
 # path_list = sl_std_check_basic(df)
+
+file_sl = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
+              'WOA_Standard_Depths.txt'
 
 output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
              'value_vs_depth\\11_stats_check\\'
@@ -424,7 +404,7 @@ output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 for f in infiles:
     print(basename(f))
 
-    dfout = run_sl_sd_check(f)
+    dfout = run_sl_sd_check(f, file_sl)
 
     # Remove values that failed the sd check
     dfout_drop = deepcopy(dfout.loc[dfout.SD_flag == 0])
@@ -470,29 +450,29 @@ Oxy_1991_2020_value_vs_depth_rr_OND.csv
 """Sept. 3, 2021:
 Oxy_1991_2020_value_vs_depth_rr_AMJ.csv
 100%|██████████| 9/9 [01:04<00:00,  7.21s/it]
-270167
-267693
-1634
-840
+270167 num observations in
+267693 0
+1634 1 
+840 2
 
 Oxy_1991_2020_value_vs_depth_rr_JAS.csv
 100%|██████████| 9/9 [01:20<00:00,  8.94s/it]
 296690
-294517
-1524
-649
+294517 0
+1524 1
+649 2
 
 Oxy_1991_2020_value_vs_depth_rr_JFM.csv
 100%|██████████| 9/9 [00:43<00:00,  4.83s/it]
 153229
-151539
-1089
-601
+151539 0
+1089 1
+601 2
 
 Oxy_1991_2020_value_vs_depth_rr_OND.csv
 100%|██████████| 9/9 [00:40<00:00,  4.48s/it]
 141805
-140743
-781
-281
+140743 0
+781 1
+281 2
 """

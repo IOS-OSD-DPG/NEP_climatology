@@ -1,6 +1,75 @@
 # Separate value vs depth standard level values by standard level
 # in preparation for spatial interpolation
+# Also separate by season?
+
+# 2 options:
+# Create the standard level files and add to them as the standard levels are
+# encountered in the vvd files, so all are being added to at the same time
+# OR
+# Iterate through all the standard level files to create and complete the
+# standard level files one at a time
 
 import pandas as pd
 import glob
+from get_standard_levels import get_standard_levels
+import numpy as np
+
+# Find vvd files
+indir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+        'value_vs_depth\\12_latlon_check\\'
+
+infiles = glob.glob(indir + '*.csv')
+
+print(len(infiles))
+
+szn_abbrev = []
+for f in infiles:
+    if 'JFM' in f:
+        szn_abbrev.append('JFM')
+    elif 'AMJ' in f:
+        szn_abbrev.append('AMJ')
+    elif 'JAS' in f:
+        szn_abbrev.append('JAS')
+    elif 'OND' in f:
+        szn_abbrev.append('OND')
+
+# Get standard levels
+file_sl = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
+              'WOA_Standard_Depths.txt'
+
+sl_arr = get_standard_levels(file_sl)
+
+# Define output directory for standard level files
+outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+         'value_vs_depth\\13_separate_by_sl\\'
+
+# Iterate through the standard levels
+for i in range(len(sl_arr)):
+
+    # Want Date_string, Latitude, Longitude, and SL_value
+    # Iterate through the value vs depth tables from the previous
+    # processing step
+    for f, szn in zip(infiles, szn_abbrev):
+        # Initialize dataframe for each standard level
+        df_sl = pd.DataFrame()
+
+        # Get the season months abbreviation
+        # szn = f[-7:-4]  # Change indices if file names change!!!
+
+        # Read in vvd file
+        vvd = pd.read_csv(f)
+
+        # Subset the observations at standardlevel_array[i]
+        sl_subsetter = np.where(vvd.SL_depth_m == sl_arr[i])[0]
+
+        # Concatenate to the corresponding dataframe
+        df_sl = pd.concat([
+            df_sl, vvd.loc[sl_subsetter,
+                           ['Date_string', 'Latitude', 'Longitude', 'SL_value']]])
+
+        # Export df_sl as a csv file
+        sl_out_name = 'Oxy_{}m_{}.csv'.format(sl_arr[i], szn)
+
+        df_sl.to_csv(outdir + sl_out_name, index=False)
+
 
