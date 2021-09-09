@@ -20,133 +20,137 @@ ios_wp_files = glob.glob(ios_wp_path + '*.bot.nc', recursive=False)
 # Get ctd files
 ios_wp_files += glob.glob(ios_wp_path + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
 
-
+# NODC WOD
 nodc_nocad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\' \
                   'source_format\\WOD_extracts\\Oxy_WOD_May2021_extracts\\'
 # nodc_nocad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/Oxy_WOD_May2021_extracts/'
 nodc_nocad_files = glob.glob(nodc_nocad_path + 'Oxy*OSD.nc', recursive=False)
 nodc_nocad_files.sort()
 
-nodc_cad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\WOD_extracts\\' \
-                'WOD_July_CDN_nonIOS_extracts\\'
+nodc_cad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                'WOD_extracts\\WOD_July_CDN_nonIOS_extracts\\'
 # nodc_cad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/WOD_July_CDN_nonIOS_extracts/'
 nodc_cad_files = glob.glob(nodc_cad_path + 'Oxy*OSD.nc', recursive=False)
 nodc_cad_files.sort()
 
-meds_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\' \
-            'bo_extracts\\'
+meds_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\' \
+            'meds_data_extracts\\bo_extracts\\'
 meds_files = glob.glob(meds_path + '*DOXY*source.csv', recursive=False)
 meds_files.sort()
 
 
-# DataFrame columns
-df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
-           "Instrument_type", "Date_string", "Latitude",
-           "Longitude", "Quality_control_flag"]
-
 #####################################
 # Initialize dataframe for IOS data
-ios_df = pd.DataFrame(columns=df_cols)
 
 
-# Open IOS files
-for i, f in enumerate(ios_files):
-    print(i, f)
-    ios_data = open_dataset(f)
-    
-    # Get unique profile indices to allow filtering through "row" dimension
-    indices = np.unique(ios_data.profile.data, return_index=True)[1]
-    
-    ios_fname_array = np.repeat(basename(f), len(indices))
-    ios_institute_array = np.repeat(ios_data.institution, len(indices))
-    
-    if 'CTD' in f:
-        inst = 'CTD'
-    elif 'BOT' in f:
-        inst = 'BOT'
+def ios_to_pdt(nclist):
+    df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
+               "Instrument_type", "Date_string", "Latitude",
+               "Longitude", "Quality_control_flag"]
 
-    print(inst)
-    ios_instrument_type_array = np.repeat(inst, len(indices))
-    
-    # Time strings: yyyymmddhhmmsszzz; slow to run
-    ios_time_strings = pd.to_datetime(ios_data.time.data).strftime('%Y%m%d%H%M%S%')
-    
-    # QC flags: good data by default, according to Germaine
-    ios_flags = np.ones(len(indices))
-    
-    # Take transpose of arrays?
-    ios_df_add = pd.DataFrame(
-        data=np.array([ios_fname_array,
-                       ios_institute_array,
-                       ios_data.mission_id.data[indices],
-                       ios_instrument_type_array,
-                       ios_time_strings[indices],
-                       ios_data.latitude.data[indices],
-                       ios_data.longitude.data[indices],
-                       ios_flags]).transpose(), columns=df_cols)
-    
-    ios_df = pd.concat([ios_df, ios_df_add])
+    ios_df = pd.DataFrame(columns=df_cols)
 
+    # Open IOS files
+    for i, f in enumerate(nclist):
+        print(i, f)
+        ios_data = open_dataset(f)
+
+        # Get unique profile indices to allow filtering through "row" dimension
+        indices = np.unique(ios_data.profile.data, return_index=True)[1]
+
+        ios_fname_array = np.repeat(basename(f), len(indices))
+        ios_institute_array = np.repeat(ios_data.institution, len(indices))
+
+        if 'CTD' in f:
+            inst = 'CTD'
+        elif 'BOT' in f:
+            inst = 'BOT'
+
+        print(inst)
+        ios_instrument_type_array = np.repeat(inst, len(indices))
+
+        # Time strings: yyyymmddhhmmsszzz; slow to run
+        ios_time_strings = pd.to_datetime(ios_data.time.data).strftime('%Y%m%d%H%M%S%')
+
+        # QC flags: good data by default, according to Germaine
+        ios_flags = np.ones(len(indices))
+
+        # Take transpose of arrays?
+        ios_df_add = pd.DataFrame(
+            data=np.array([ios_fname_array,
+                           ios_institute_array,
+                           ios_data.mission_id.data[indices],
+                           ios_instrument_type_array,
+                           ios_time_strings[indices],
+                           ios_data.latitude.data[indices],
+                           ios_data.longitude.data[indices],
+                           ios_flags]).transpose(), columns=df_cols)
+
+        ios_df = pd.concat([ios_df, ios_df_add])
+
+        return ios_df
+
+
+ios_out_df = ios_to_pdt(ios_files)
 
 ios_df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\IOS_Profiles_Oxy_1991_2020.csv'
 # ios_df_name = '/home/hourstonh/Documents/climatology/data_extracts/IOS_Profiles_Oxy_1991_2020.csv'
-ios_df.to_csv(ios_df_name)
-
-# Flag duplicates in the dataframe
-ios_df_edr = ios_df.copy()
-ios_df_edr['Duplicate_row'] = ios_df.duplicated()
-
-# dr stands for duplicate rows
-ios_df_edr_name = '/home/hourstonh/Documents/climatology/data_extracts/IOS_Profiles_Oxy_1991_2020_dr.csv'
-ios_df_edr.to_csv(ios_df_edr_name)
+ios_out_df.to_csv(ios_df_name)
 
 
 ################
 # IOS Water Properties files (ones missing from CIOOS download)
 
-# Initialize dataframe for IOS data
-ios_wp_df = pd.DataFrame(columns=df_cols)
 
-dict_list = []
+def ios_wp_to_pdt(nclist):
+    df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
+               "Instrument_type", "Date_string", "Latitude",
+               "Longitude", "Quality_control_flag"]
 
-for i, f in enumerate(ios_wp_files):
-    print(i, f)
-    if 'bot' in f:
-        instrument_type = 'BOT'
-    elif 'ctd' in f:
-        instrument_type = 'CTD'
-    # Open file
-    ncdata = open_dataset(f)
-    # Initialize dataframe
-    # df_add = pd.DataFrame(
-    #     data=np.array([]).transpose(),
-    #     columns=df_cols)
+    # Initialize dataframe for IOS data
+    ios_wp_df = pd.DataFrame(columns=df_cols)
 
-    # ios_wp_df = pd.concat([ios_wp_df, df_add])
+    dict_list = []
 
-    dict_list.append({'Source_data_file_name': basename(f),
-                      'Institute': ncdata.institution,
-                      'Cruise_number': ncdata.mission_id.data,
-                      'Instrument_type': instrument_type,
-                      'Date_string': pd.to_datetime(ncdata.time.data).strftime('%Y%m%d%H%M%S'),
-                      'Latitude': ncdata.latitude.data,
-                      'Longitude': ncdata.longitude.data,
-                      'Quality_control_flag': 1})
+    for i, f in enumerate(nclist):
+        print(i, f)
+        if 'bot' in f:
+            instrument_type = 'BOT'
+        elif 'ctd' in f:
+            instrument_type = 'CTD'
+        # Open file
+        ncdata = open_dataset(f)
+        # Initialize dataframe
+        # df_add = pd.DataFrame(
+        #     data=np.array([]).transpose(),
+        #     columns=df_cols)
 
-df_out = pd.DataFrame.from_dict(dict_list)
+        # ios_wp_df = pd.concat([ios_wp_df, df_add])
 
+        dict_list.append({'Source_data_file_name': basename(f),
+                          'Institute': ncdata.institution,
+                          'Cruise_number': ncdata.mission_id.data,
+                          'Instrument_type': instrument_type,
+                          'Date_string': pd.to_datetime(ncdata.time.data).strftime('%Y%m%d%H%M%S'),
+                          'Latitude': ncdata.latitude.data,
+                          'Longitude': ncdata.longitude.data,
+                          'Quality_control_flag': 1})
+
+    df_out = pd.DataFrame.from_dict(dict_list)
+
+    return df_out
+
+
+ios_wp_out_df = ios_wp_to_pdt(ios_wp_files)
 outname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
-          'IOS_WP_Profiles_Oxy_1991_2020.csv'
-df_out.to_csv(outname, index=False)
-
-################
-### NODC WOD ###
+              'IOS_WP_Profiles_Oxy_1991_2020.csv'
+ios_wp_out_df.to_csv(outname, index=False)
 
 
-def nodc_to_common_csv(nodc_files, sourcetype):
-    colnames = ["Source_data_file_name", "Institute", "Cruise_number",
-                "Instrument_type", "Date_string", "Latitude",
-                "Longitude", "Quality_control_flag"]
+def nodc_to_pdt(nodc_files, sourcetype):
+    df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
+               "Instrument_type", "Date_string", "Latitude",
+               "Longitude", "Quality_control_flag"]
     
     nodc_df = pd.DataFrame(columns=df_cols)
     
@@ -205,92 +209,88 @@ def nodc_to_common_csv(nodc_files, sourcetype):
     return
 
 
-nodc_to_common_csv(nodc_nocad_files, sourcetype='noCAD')
-nodc_to_common_csv(nodc_cad_files, sourcetype='CAD')
+nodc_to_pdt(nodc_nocad_files, sourcetype='noCAD')
+nodc_to_pdt(nodc_cad_files, sourcetype='CAD')
 
 
-#####################
-##### MEDS Data #####
+def meds_to_pdt(csvfiles):
+    df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
+               "Instrument_type", "Date_string", "Latitude",
+               "Longitude", "Quality_control_flag"]
 
-# MEDS data: initialize empty dataframe
-meds_df = pd.DataFrame(columns=df_cols)
+    # MEDS data: initialize empty dataframe
+    meds_df = pd.DataFrame(columns=df_cols)
 
-meds_data = pd.read_csv(meds_files[0])
+    meds_data = pd.read_csv(csvfiles[0])
 
-meds_data.head()
+    meds_data.head()
 
-# Get number of unique profiles
-unique = np.unique(meds_data.loc[:, 'RowNum'], return_index=True)[1]
+    # Get number of unique profiles
+    unique = np.unique(meds_data.loc[:, 'RowNum'], return_index=True)[1]
 
-# Oxy data spans 1991-01-22 05:13:00 to 1995-03-09 23:35:00
-meds_fname_array = np.repeat('MEDS_ASCII_1991_2000.csv', len(unique))
+    # Oxy data spans 1991-01-22 05:13:00 to 1995-03-09 23:35:00
+    meds_fname_array = np.repeat('MEDS_ASCII_1991_2000.csv', len(unique))
 
-# Get instrument from file name
-if 'CTD' in meds_files[0]:
-    inst = 'CTD'
-elif 'BO' in meds_files[0]:
-    inst = 'BOT'
+    # Get instrument from file name
+    if 'CTD' in csvfiles[0]:
+        inst = 'CTD'
+    elif 'BO' in csvfiles[0]:
+        inst = 'BOT'
 
-meds_instrument_array = np.repeat(inst, len(unique))
+    meds_instrument_array = np.repeat(inst, len(unique))
 
-# Time string data
-meds_data['Hour'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-4:][:-2])
-meds_data['Minute'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-4:][-2:])
+    # Time string data
+    meds_data['Hour'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-4:][:-2])
+    meds_data['Minute'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-4:][-2:])
 
-# meds_data['Hour'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[:-2])
-# meds_data['Minute'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-2:])
+    # meds_data['Hour'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[:-2])
+    # meds_data['Minute'] = meds_data.Time.astype(str).apply(lambda x: ('000' + x)[-2:])
 
+    np.where(pd.isnull(meds_data.Hour))
+    np.where(pd.isnull(meds_data.Minute))
 
-np.where(pd.isnull(meds_data.Hour))
-np.where(pd.isnull(meds_data.Minute))
+    meds_data['Timestring'] = pd.to_datetime(
+        meds_data[['Year', 'Month', 'Day', 'Hour', 'Minute']]).dt.strftime(
+        '%Y%m%d%H%M%S')
 
-meds_data['Timestring'] = pd.to_datetime(
-    meds_data[['Year', 'Month', 'Day', 'Hour', 'Minute']]).dt.strftime(
-    '%Y%m%d%H%M%S')
+    np.where(pd.isnull(meds_data.Timestring))
 
-np.where(pd.isnull(meds_data.Timestring))
+    # meds_data['Time_pd'] = pd.to_datetime(
+    #     meds_data[['Year', 'Month', 'Day', 'Hour', 'Minute']])
+    #
+    # print(min(meds_data['Time_pd']), max(meds_data['Time_pd']))
 
-# meds_data['Time_pd'] = pd.to_datetime(
-#     meds_data[['Year', 'Month', 'Day', 'Hour', 'Minute']])
-#
-# print(min(meds_data['Time_pd']), max(meds_data['Time_pd']))
+    # # DataFrame columns
+    # df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
+    #            "Instrument_type", "Date_string", "Latitude",
+    #            "Longitude", "Quality_control_flag"]
 
-# # DataFrame columns
-# df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
-#            "Instrument_type", "Date_string", "Latitude",
-#            "Longitude", "Quality_control_flag"]
+    # Need to convert MEDS longitude from positive towards West to positive towards East
+    meds_df_add = pd.DataFrame(
+        data=np.array([meds_fname_array,
+                       meds_data.loc[:, 'SourceID'][unique],
+                       meds_data.loc[:, 'CruiseID'][unique],
+                       meds_instrument_array,
+                       meds_data.loc[:, 'Timestring'][unique],
+                       meds_data.loc[:, 'Lat'][unique],
+                       -meds_data.loc[:, 'Lon'][unique],
+                       meds_data.loc[:, 'PP_flag'][unique]]).transpose(),
+        columns=df_cols
+    )
 
-# Need to convert MEDS longitude from positive towards West to positive towards East
-meds_df_add = pd.DataFrame(
-    data=np.array([meds_fname_array,
-                   meds_data.loc[:, 'SourceID'][unique],
-                   meds_data.loc[:, 'CruiseID'][unique],
-                   meds_instrument_array,
-                   meds_data.loc[:, 'Timestring'][unique],
-                   meds_data.loc[:, 'Lat'][unique],
-                   -meds_data.loc[:, 'Lon'][unique],
-                   meds_data.loc[:, 'PP_flag'][unique]]).transpose(),
-    columns=df_cols
-)
+    meds_df = pd.concat([meds_df, meds_df_add])
 
-meds_df = pd.concat([meds_df, meds_df_add])
+    print(np.where(pd.isna(meds_df)))
 
-np.where(pd.isna(meds_df))
+    return meds_df
+
 
 output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\'
 
 meds_csv_name = 'MEDS_Profiles_Oxy_1991_1995.csv'
 
-meds_df.to_csv(output_folder + meds_csv_name)
-
-# Flag duplicate rows
-meds_df_edr = meds_df.copy()
-
-meds_df_edr['Duplicate_row'] = meds_df.duplicated()
-
-meds_df_edr_name = meds_csv_name.replace('.', '_dr.')
-
-meds_df_edr.to_csv(output_folder + meds_df_edr_name)
+meds_out_df = meds_to_pdt(meds_files)
+meds_out_df.to_csv(output_folder + meds_csv_name)
 
 
 ###################################

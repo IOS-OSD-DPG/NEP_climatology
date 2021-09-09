@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from os.path import basename
-import glob
 
 
 def vvd_subset_latlon(fpath, out_dir):
@@ -24,21 +23,10 @@ def vvd_subset_latlon(fpath, out_dir):
     df_out.to_csv(out_dir + df_out_name, index=False)
 
     print(df_out_name)
-    print(len(df))
-    print(len(df_out))
+    print('In df length', len(df))
+    print('Out df length', len(df_out))
 
     return out_dir + df_out_name
 
-
-indir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-        'value_vs_depth\\11_stats_check\\'
-
-infiles = glob.glob(indir + '*done.csv')
-
-outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\12_latlon_check\\'
-
-for f in infiles:
-    vvd_subset_latlon(f, outdir)
 
 

@@ -5,23 +5,13 @@ import pandas as pd
 import numpy as np
 from tqdm import trange
 from functools import reduce
+from clim_helpers import date_string_to_datetime, open_by_source
 
 
 def array_all_nan(arr):
     # Return true if input array contains only nans
     cond = len(np.isnan(arr)[np.isnan(arr) == True]) == len(arr)
     return cond
-
-
-def open_by_source(full_path):
-    # Open data file based on which data centre it came from
-    # IOS and NODC files are netCDF
-    # MEDS files are csv
-    if full_path.endswith('.nc'):
-        data = open_dataset(full_path)
-    elif full_path.endswith('.csv'):
-        data = pd.read_csv(full_path)
-    return data
 
 
 def get_ios_profile_data(ncdata, cruise_number, time, lat, lon):
@@ -167,8 +157,7 @@ def prep_pdt():
     # Create a new column for Date_string in pandas datetime format
     # ValueError: time data '19910100000000' does not match format '%Y%m%d%H%M%S' (match)
     # Can't have a zeroth day of the month...
-    df_pdt.insert(len(df_pdt.columns), 'Time_pd',
-                  pd.to_datetime(df_pdt.Date_string, format='%Y%m%d%H%M%S'))
+    df_pdt = date_string_to_datetime(df_pdt)
 
     # Rename MEDS source file names
     meds_subsetter = np.where(
