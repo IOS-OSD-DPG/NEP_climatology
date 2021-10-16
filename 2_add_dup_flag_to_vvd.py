@@ -98,11 +98,7 @@ def vvd_add_dup_flags(df_vvd, df_pdt, verbose=False):
     return df_vvd, df_pdt
 
 
-def prep_pdt_v2():
-    pdt_fname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-                'profile_data_tables\\duplicates_flagged\\' \
-                'ALL_Profiles_Oxy_1991_2020_ie_001ll_check2.csv'
-
+def prep_pdt_v2(pdt_fname):
     # Open profile data table containing duplicate flags
     pdt_df = pd.read_csv(pdt_fname)
     # Drop the Original_row_index column
@@ -130,17 +126,32 @@ def prep_pdt_v2():
 
 # Value vs depth table folder
 vvd_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-          'value_vs_depth\\original\\'
+          'value_vs_depth\\1_original\\'
 # vvd_fname = vvd_dir + 'ALL_Oxy_1991_2020_value_vs_depth.csv'
 
-vvd_list = glob.glob(vvd_dir + '*0.csv')
+vvd_list = glob.glob(vvd_dir + 'WOD_PFL_Oxy*0.csv')
 vvd_list.sort()
 
 # Find the duplicate flags file
-pdt = prep_pdt_v2()
+# pdt_fpath = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#             'profile_data_tables\\duplicates_flagged\\' \
+#             'ALL_Profiles_Oxy_1991_2020_ie_001ll_check2.csv'
+pdt_fpath = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+            'profile_data_tables\\Argo\\' \
+            'NODC_noCAD_PFL_Profiles_Oxy_1991_2020_cb_edf.csv'
+# pdt = prep_pdt_v2(pdt_fpath)
+
+pdt = pd.read_csv(pdt_fpath)
+print(pdt.columns)
+print(pdt.head())
+# Convert date_string back to string format from float format ugh
+pdt['Date_string'] = list(map(lambda x: str(x), pdt['Date_string']))
+# Add column for inexact duplicate check
+pdt['Inexact_duplicate_check2'] = np.repeat(False, len(pdt))
+pdt['Number_of_uses'] = np.zeros(len(pdt), dtype=int)
 
 output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-             'value_vs_depth\\added_dup_flags\\'
+             'value_vs_depth\\2_added_dup_flags\\'
 
 # Iterate through the files
 for f in vvd_list:
@@ -167,9 +178,9 @@ for f in vvd_list:
 
 # Check for exact duplicate rows again to be safe
 vvd_dup_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-              'value_vs_depth\\added_dup_flags\\'
+              'value_vs_depth\\2_added_dup_flags\\'
 
-vvd_dup_files = glob.glob(vvd_dup_dir + '*.csv', recursive=False)
+vvd_dup_files = glob.glob(vvd_dup_dir + 'WOD_PFL_Oxy*.csv', recursive=False)
 
 # Check all columns except for 'Profile_number'
 cols_to_check = ['Cruise_number', 'Instrument_type', 'Date_string',
@@ -198,7 +209,6 @@ for f in vvd_dup_files:
 
     # Export the updated df
     df.to_csv(vvd_dup_check2_dir + basename(f), index=False)
-
 
 
 ##### TESTING #####

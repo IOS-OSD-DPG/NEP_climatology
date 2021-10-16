@@ -15,7 +15,7 @@ from os.path import basename
 from tqdm import trange
 
 interp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-             'value_vs_depth\\9_vertical_interp\\'
+             'value_vs_depth\\10_vertical_interp\\'
 
 infiles = glob.glob(interp_dir + '*value_vs_depth*.csv')
 
@@ -61,7 +61,7 @@ for i in trange(len(prof_start_ind)):
     # continue
 
 out_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-          'value_vs_depth\\10_replicate_check\\'
+          'value_vs_depth\\11_replicate_check\\'
 
 outname = basename(infiles[0]).replace('.csv', '_rep_val_check.csv')
 

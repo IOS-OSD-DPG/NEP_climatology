@@ -18,7 +18,7 @@ def vvd_subset_latlon(fpath, out_dir):
 
     df_out = df.loc[subsetter]
 
-    df_out_name = basename(fpath)
+    df_out_name = basename(fpath).replace('dup_rm.csv', 'latlon.csv')
 
     df_out.to_csv(out_dir + df_out_name, index=False)
 
@@ -27,6 +27,4 @@ def vvd_subset_latlon(fpath, out_dir):
     print('Out df length', len(df_out))
 
     return out_dir + df_out_name
-
-
 

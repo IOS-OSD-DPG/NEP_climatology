@@ -123,14 +123,14 @@ dir1 = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 files1 = glob.glob(dir1 + '*Oxy*.csv')
 
 dir8 = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-       'value_vs_depth\\8_gradient_check\\'
+       'value_vs_depth\\9_gradient_check\\'
 
-file8 = dir8 + 'ALL_Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
+file8 = dir8 + 'Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
 
-# Need to apply lat/lon check to file8 !!!!!!
-file8_ll = vvd_subset_latlon(file8, dir8 + 'latlon_check\\')
+# # Need to apply lat/lon check to file8 !!!!!!
+# file8_ll = vvd_subset_latlon(file8, dir8 + 'latlon_check\\')
 
-df_out = make_summary_table(files1, [file8_ll])
+df_out = make_summary_table(files1, [file8])
 
 # Export
 df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_explore\\' \

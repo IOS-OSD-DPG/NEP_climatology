@@ -24,7 +24,7 @@ from copy import deepcopy
 def map_5deg_grid():
     # gradient check done file
     vvd_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-               'value_vs_depth\\10_replicate_check\\' \
+               'value_vs_depth\\11_replicate_check\\' \
                'Oxy_1991_2020_value_vs_depth_rr_rep_val_check.csv'
 
     vvd_df = pd.read_csv(vvd_file)
@@ -70,7 +70,7 @@ def map_5deg_grid():
     plt.title('10_Oxy 5-degree grid')
 
     dest_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-               'value_vs_depth\\10_replicate_check\\'
+               'value_vs_depth\\11_replicate_check\\'
     png_name = 'Oxy_1991_2020_5deg_grid_60.png'
 
     plt.savefig(dest_dir + png_name, dpi=400)
@@ -152,7 +152,7 @@ def sl_std_check_basic(df_in):
     return outdir + outname, outdir + outname2
 
 
-def sl_std_5deg_check(vvd_path, sl_path, out_dir, szn, verbose=False):
+def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
     # Compute 5-degree square statistics in the Northeast Pacific Ocean
 
     # vvd_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
@@ -168,6 +168,8 @@ def sl_std_5deg_check(vvd_path, sl_path, out_dir, szn, verbose=False):
     sd_multiplier_df = pd.read_csv(sd_multiplier_file, skiprows=1)
 
     # Standard level file -- returns an array of the standard levels
+    sl_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
+              'WOA_Standard_Depths.txt'
     sl_arr = get_standard_levels(sl_path)
 
     # # Index vvd by unique profile number
@@ -176,11 +178,12 @@ def sl_std_5deg_check(vvd_path, sl_path, out_dir, szn, verbose=False):
     # Initialize column to hold stdev flag in vvd
     # Initialize with -9 to help filter out measurements that are
     # completely outside the 2D square grid (don't want for spatial interp!)
-    vvd['SD_flag'] = np.repeat(-9, len(vvd))  # , dtype='int32'
+    # Edit: did latlon checks earlier
+    vvd['SD_flag'] = np.repeat(0, len(vvd))  # , dtype='int32'
 
     # Initialize dataframes to hold square statistics for each square cell
 
-    # Square number of values df
+    # Square number of values df -- has same structure as the multiplier df
     sq_nval_df = sd_multiplier_df.copy(deep=True)
 
     # Replace multiplier values with zeros
@@ -191,6 +194,7 @@ def sl_std_5deg_check(vvd_path, sl_path, out_dir, szn, verbose=False):
         sq_nval_df.rename(columns={colname: colname.replace('mult_', '')},
                           inplace=True)
 
+    # Initialize dataframes to hold means and standard deviations
     sq_mean1_df = sq_nval_df.copy(deep=True)
 
     sq_sd1_df = sq_nval_df.copy(deep=True)
@@ -219,6 +223,7 @@ def sl_std_5deg_check(vvd_path, sl_path, out_dir, szn, verbose=False):
                 (sd_multiplier_df.Latitude >= yi[j]) &
                 (sd_multiplier_df.Latitude <= yi[j + 1]))[0]
 
+            # Iterate through the standard levels, starting from 0m
             for k in range(len(sl_arr)):
                 # # Get coordinates of square points
                 # topleft = (x_lon_r[i], y_lat_r[j])
@@ -226,7 +231,8 @@ def sl_std_5deg_check(vvd_path, sl_path, out_dir, szn, verbose=False):
                 # botright = (x_lon_r[i + 1], y_lat_r[j + 1])
                 # botleft = (x_lon_r[i + 1], y_lat_r[j])
 
-                # Index the level column name (e.g., 'mult_0m', 'mult_5m', ...)
+                # Index the level column name in the multiplier file
+                # (e.g., 'mult_0m', 'mult_5m', ...)
                 sd_multiplier_lvl = sd_multiplier_df.columns[k + 2]
                 # Index the level column name for stats dfs (e.g., '0m', '5m', ...)
                 stats_lvl = sq_nval_df.columns[k + 2]
@@ -366,10 +372,11 @@ def sl_std_5deg_check(vvd_path, sl_path, out_dir, szn, verbose=False):
     return vvd
 
 
-def run_sl_sd_check(file_path, sl_path):
+def run_sl_sd_check(file_path, dest_dir):
     # Get season names
+    # JFM AMJ JAS OND
     szn_abbrev = file_path[-7:-4]
-    df_out = sl_std_5deg_check(file_path, sl_path, output_dir, szn_abbrev)
+    df_out = sl_std_5deg_check(file_path, dest_dir, szn_abbrev)
 
     # See printouts below
     print(len(df_out))
@@ -382,7 +389,7 @@ def run_sl_sd_check(file_path, sl_path):
 
 
 in_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\10_replicate_check\\by_season\\'
+         'value_vs_depth\\11_replicate_check\\by_season\\'
 
 infiles = glob.glob(in_dir + '*.csv')
 
@@ -395,16 +402,13 @@ infiles.sort()
 # STANDARD DEVIATION CHECKS
 # path_list = sl_std_check_basic(df)
 
-file_sl = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
-              'WOA_Standard_Depths.txt'
-
 output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-             'value_vs_depth\\11_stats_check\\'
+             'value_vs_depth\\12_stats_check\\'
 
 for f in infiles:
     print(basename(f))
 
-    dfout = run_sl_sd_check(f, file_sl)
+    dfout = run_sl_sd_check(f, output_dir)
 
     # Remove values that failed the sd check
     dfout_drop = deepcopy(dfout.loc[dfout.SD_flag == 0])
@@ -445,34 +449,4 @@ Oxy_1991_2020_value_vs_depth_rr_OND.csv
 141407
 0 
 398 WHYYY
-"""
-
-"""Sept. 3, 2021:
-Oxy_1991_2020_value_vs_depth_rr_AMJ.csv
-100%|██████████| 9/9 [01:04<00:00,  7.21s/it]
-270167 num observations in
-267693 0
-1634 1 
-840 2
-
-Oxy_1991_2020_value_vs_depth_rr_JAS.csv
-100%|██████████| 9/9 [01:20<00:00,  8.94s/it]
-296690
-294517 0
-1524 1
-649 2
-
-Oxy_1991_2020_value_vs_depth_rr_JFM.csv
-100%|██████████| 9/9 [00:43<00:00,  4.83s/it]
-153229
-151539 0
-1089 1
-601 2
-
-Oxy_1991_2020_value_vs_depth_rr_OND.csv
-100%|██████████| 9/9 [00:40<00:00,  4.48s/it]
-141805
-140743 0
-781 1
-281 2
 """

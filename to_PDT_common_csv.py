@@ -143,7 +143,7 @@ def ios_wp_to_pdt(nclist, var):
     return df_out
 
 
-def nodc_to_pdt(nodc_files, sourcetype, var):
+def nodc_to_pdt(nodc_files, sourcetype, var, output_folder):
     df_cols = ["Source_data_file_name", "Institute", "Cruise_number",
                "Instrument_type", "Date_string", "Latitude",
                "Longitude", "Quality_control_flag"]
@@ -210,8 +210,6 @@ def nodc_to_pdt(nodc_files, sourcetype, var):
 
     # Export to csv file
     # output_folder = '/home/hourstonh/Documents/climatology/data_extracts/'
-    output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\' \
-                    'data\\profile_data_tables\\'
     nodc_name = 'NODC_{}_Profiles_{}_1991_2020.csv'.format(sourcetype, var)
     nodc_df.to_csv(output_folder + nodc_name)
 
@@ -383,9 +381,21 @@ outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 gather_raw_data('Temp', outdir)
 gather_raw_data('Sal', outdir)
 
+# Second version of oxygen data that includes Argo oxygen sensor data
+argo_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+           'profile_data_tables\\Argo\\'
+
+indir = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\' \
+        'data\\source_format\\WOD_extracts\\' \
+        'Oxy_WOD_May2021_extracts\\'
+
+argo_files = glob.glob(indir + 'Oxy*PFL.nc')
+
+nodc_to_pdt(argo_files, sourcetype="noCAD_PFL", var='Oxy',
+            output_folder=argo_dir)
 
 ###################################
-### COMBINE ALL PROFILE DATA TABLES
+# COMBINE ALL PROFILE DATA TABLES
 
 def combine_all_pdt():
     # extract_folder = '/home/hourstonh/Documents/climatology/data_extracts/'

@@ -74,9 +74,9 @@ print(np.all(diffs2 >= 0))  # Want True
 
 # Import value vs depth data
 df_indir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-           'value_vs_depth\\8_gradient_check\\'
-
-df_infile = 'ALL_Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
+           'value_vs_depth\\9_gradient_check\\'
+df_infile = 'Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
+# df_infile = 'WOD_PFL_Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
 
 df_vvd = pd.read_csv(df_indir + df_infile)
 
@@ -185,10 +185,10 @@ df_out.loc[:, 'SL_depth_m'] = df_out.SL_depth_m.astype('int32')
 
 # Export dataframe to csv file
 df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-            'value_vs_depth\\9_vertical_interp\\'
+            'value_vs_depth\\10_vertical_interp\\'
 
 # 'rr' stands for Reiniger-Ross vertical interpolation
-df_outname = 'Oxy_1991_2020_value_vs_depth_rr_v2.csv'
+df_outname = 'Oxy_1991_2020_value_vs_depth_rr.csv'
 
 df_out.to_csv(df_outdir + df_outname, index=False)
 
@@ -197,7 +197,7 @@ df_out.to_csv(df_outdir + df_outname, index=False)
 prof_drop_arr = np.setdiff1d(df_vvd.Profile_number, df_out.Profile_number)
 
 df_prof_drop = pd.Series(prof_drop_arr, name='Profile_number')
-series_name = 'Oxy_1991_2020_rr_prof_drop_v2.csv'
+series_name = 'Oxy_1991_2020_rr_prof_drop.csv'
 df_prof_drop.to_csv(df_outdir + series_name, index=False)
 
 

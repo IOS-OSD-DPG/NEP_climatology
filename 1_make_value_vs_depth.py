@@ -430,7 +430,7 @@ ts_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
          'source_format\\WOD_extracts\\'
 
 # Assemble files
-wod_var = 'Sal'  # Oxy, Temp, Sal
+wod_var = 'Oxy'  # Oxy, Temp, Sal
 osd_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*OSD.nc'.format(wod_var))
 osd_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*OSD.nc'.format(wod_var))
 
@@ -442,6 +442,8 @@ drb_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*DRB.nc'.format
 
 pfl_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*PFL.nc'.format(wod_var))
 pfl_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*PFL.nc'.format(wod_var))  # empty
+
+pfl_files = glob.glob(ts_dir + 'Oxy_WOD_May2021_extracts\\{}*PFL.nc'.format(wod_var))
 
 gld_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*GLD.nc'.format(wod_var))
 gld_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*GLD.nc'.format(wod_var))
@@ -481,7 +483,8 @@ for f in pfl_files:
     months = basename(f)[-10:-7]
     inst = 'PFL'
     data = open_dataset(f)
-    df_out = nodc_to_vvd0(data, instrument=inst, var='Salinity',
+    # Oxygen, Salinity, Temperature
+    df_out = nodc_to_vvd0(data, instrument=inst, var='Oxygen',
                           counter=0)[0]
     out_name = 'WOD_{}_{}_{}_1991_2020_value_vs_depth_0.csv'.format(inst, wod_var,
                                                                     months)
