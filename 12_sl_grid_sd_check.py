@@ -13,7 +13,7 @@ from os.path import basename, exists
 from os import mkdir
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
-from get_standard_levels import get_standard_levels
+from clim_helpers import get_standard_levels
 from tqdm import trange
 from copy import deepcopy
 

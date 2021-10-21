@@ -1,6 +1,6 @@
 import pandas as pd
 import glob
-from get_standard_levels import get_standard_levels
+from clim_helpers import get_standard_levels
 from clim_helpers import date_string_to_datetime
 import numpy as np
 from tqdm import trange
