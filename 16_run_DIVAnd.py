@@ -1,4 +1,15 @@
-"""Run the DIVAnd Python tool"""
+"""Run the DIVAnd Python tool
+I have only been able to run this script in terminal, not Pycharm.
+To run, follow these steps:
+
+Command prompt:
+>conda activate clim38
+>set PYTHONPATH=%PYTHONPATH%;C:\Users\HourstonH\DIVAnd.py\DIVAnd\
+cd to the directory that 16_run_DIVAnd.py is in, then:
+>python 16_run_DIVAnd.py
+
+Must set PYTHONPATH each session.
+"""
 
 import pandas as pd
 import numpy as np
@@ -6,7 +17,18 @@ import os
 from clim_helpers import get_standard_levels
 import matplotlib.pyplot as plt
 import xarray as xr
+from tqdm import trange
+import haversine as hs
+# from mpl_toolkits.basemap import Basemap
 import DIVAnd
+
+
+def deg2km(dlat):
+    # From DIVAnd.jl
+    # Mean radius (http://en.wikipedia.org/wiki/Earth_radius) in km
+    R = 6371.009
+
+    return dlat * (2 * np.pi * R) / 360
 
 
 # Access command prompt
@@ -16,11 +38,12 @@ var = 'Oxy'
 var_units = 'umol/kg'
 year = 2010
 szn = 'OND'
-standard_depth = 10
+standard_depth = 5
+radius_deg = 2  # search radius
 
 # Get standard levels file
 sl_filename = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
-          'WOA_Standard_Depths.txt'
+              'WOA_Standard_Depths.txt'
 
 sl_arr = get_standard_levels(sl_filename)
 # print(len(sl_arr))
@@ -43,13 +66,13 @@ mask_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\'
 mask_filename = os.path.join(mask_dir + 'landsea_04_nep.msk')
 
 mask_df = pd.read_csv(mask_filename)
-print(mask_df.columns)
-print(min(mask_df.Bottom_Standard_level), max(mask_df.Bottom_Standard_level))
+# print(mask_df.columns)
+print('Mask range:', min(mask_df.Bottom_Standard_level), max(mask_df.Bottom_Standard_level))
 
 # Create 2d grid of lat and lon points by reshaping the mask_df columns
 # Find dims to reshape columns to
 unique, counts = np.unique(mask_df.Longitude, return_counts=True)
-print('counts length', len(counts))
+print('counts length:', len(counts))
 # print(counts)
 
 Lon = np.array(mask_df.Longitude).reshape((counts[0], len(counts)))
@@ -67,10 +90,35 @@ mask = np.array(mask).reshape((counts[0], len(counts)))
 # Further limit mask according to sampling locations
 # Determine radius around sampling points to limit mask to? 10 deg maybe?
 # Need arcpy for this?
-radius = 10  # degrees
+radius_km = deg2km(radius_deg)  # degrees length
 
+mask_v2 = np.zeros(shape=mask.shape)
+mask_v2[mask] = 1
 
-# ---------Test DIVA-provided bathymetry----------------
+print(len(mask_v2[mask_v2 == 1]), len(mask_v2[mask_v2 == 0]))
+
+print('Recalculating mask...')
+
+for i in trange(len(vobs)):
+    obs_loc = (xobs[i], yobs[i])
+    for j in range(len(Lat)):
+        for k in range(len(Lon[0])):
+            # Check if mask is True, otherwise pass
+            if mask_v2[j, k] == 1:
+                grid_loc = (Lon[j, k], Lat[j, k])
+                dist = hs.haversine(obs_loc, grid_loc)
+                # print(dist)
+                if dist < radius_km:
+                    mask_v2[j, k] = 2
+
+print(len(mask_v2[mask_v2 == 2]), len(mask_v2[mask_v2 == 1]))
+
+# Create boolean mask version
+mask_v3 = np.empty(shape=mask_v2.shape, dtype=bool)
+mask_v3[mask_v2 == 2] = True
+mask_v3[mask_v2 != 2] = False
+
+# ---------Test DIVA-provided bathymetry----------------RESOLVED
 # Is my problem with the WOA bathymetry, or with the data, or the input
 # parameters?
 
@@ -95,7 +143,9 @@ radius = 10  # degrees
 # mask = b < 0
 
 
-# Calculate input parameters
+# ------------------------Calculate input parameters---------------------------
+
+# Scale factor of the grid
 pm, pn = DIVAnd.metric(Lon, Lat)
 # print(pm, pn, sep='\n')
 
@@ -103,7 +153,7 @@ pm, pn = DIVAnd.metric(Lon, Lat)
 # the domain size
 # Also can try optimization on correlation length
 domain_size_deg = -115-(-160)
-deg2m = 111e3
+deg2m = 111e3  # This is an approximation
 domain_size_m = domain_size_deg * deg2m
 # print(domain_size_m/10)
 
@@ -114,7 +164,8 @@ leny = 500e3  # 800e3  # in meters
 # error variance of the observations (normalized by the error variance of
 # the background field)
 # If epsilon2 is a scalar, it is thus the inverse of the signal-to-noise ratio
-epsilon2 = 1.
+signal_to_noise_ratio = 50.  # Default from Lu ODV
+epsilon2 = 1/signal_to_noise_ratio  # 1.
 
 # Compute anomalies (i.e., subtract mean)
 vmean = np.mean(vobs)
@@ -128,7 +179,8 @@ print('Lat', Lat.dtype)
 print('xobs', xobs.dtype)
 
 # Execute the analysis
-va = DIVAnd.DIVAnd(mask, (pm, pn), (Lon, Lat), (xobs, yobs), vobs, (lenx, leny), epsilon2)
+va = DIVAnd.DIVAnd(mask_v3, (pm, pn), (Lon, Lat), (xobs, yobs), vanom,
+                   (lenx, leny), epsilon2)
 
 # va = D.DIVAndrunfi(....
 # the same as DIVAndrun, but just return the field fi
@@ -144,9 +196,45 @@ print(np.min(va), np.max(va))
 # Add the field to the mean
 vout = va + vmean
 
-# Plot the results
-plt.pcolor(Lon, Lat, vout, shading='auto', cmap='jet')
-plt.colorbar(label=var_units)
+# -------------------------Plot the results------------------------------------
+
+# # Add in basemap coast
+# # Set up Lambert conformal map
+# left_lon = -162.
+# bot_lat = 22.
+# right_lon = -100.
+# top_lat = 62.
+#
+# m = Basemap(llcrnrlon=left_lon, llcrnrlat=bot_lat,
+#             urcrnrlon=right_lon, urcrnrlat=top_lat, projection='lcc',
+#             resolution='h', lat_0=0.5 * (bot_lat + top_lat),
+#             lon_0=0.5 * (left_lon + right_lon))
+#
+# # Initialize figure
+# fig = plt.figure(num=None, figsize=(8, 6), dpi=100)
+# # ax = plt.subplot(1, 1, 1) # need in order to add points to plot iteratively?
+# m.drawcoastlines(linewidth=0.2)
+# m.drawmapboundary(fill_color='white')
+# m.fillcontinents(color='0.8')
+#
+# # Plot the locations of the profiles
+# xobs, yobs = m(lon_subset, lat_subset)
+# m.scatter(xobs, yobs, marker='o', color='r', s=0.5)
+
+
+# Make simple 2d pcolor map
+
+# For color bar
+# vmin = 0
+# vmax = 15
+#
+# qcs = ax.contourf(
+#       X, Y, data,
+#       vmin=vmin, vmax=vmax
+# )
+
+plt.pcolor(Lon, Lat, vout, shading='auto', cmap='jet', vmin=150, vmax=400)
+plt.colorbar(label=var_units)  # ticks=range(150, 400 + 1, 50)
 
 # Scatter plot the observation points
 plt.scatter(xobs, yobs, c='k', s=5)
@@ -156,8 +244,8 @@ plt.xlim((-160., -115.))
 plt.ylim((30., 60.))
 
 plt_dir = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\outputs\\"
-plt_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_500e5.png".format(
-    var, standard_depth, year, szn))
+plt_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_{}deg.png".format(
+    var, standard_depth, year, szn, radius_deg))
 plt.savefig(plt_filename, dpi=400)
 
 # ---------------Export the results as a netCDF file-------------------------
@@ -167,8 +255,8 @@ ncout = xr.Dataset(coords={'Latitude': Lat[:, 0], 'Longitude': Lon[0, :]},
                    data_vars={'analysis': (('Latitude', 'Longitude'), va),
                               'pre_analysis_obs_mean': ((), vmean)})
 
-ncout_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_500e5.nc".format(
-    var, standard_depth, year, szn))
+ncout_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_{}deg.nc".format(
+    var, standard_depth, year, szn, radius_deg))
 
 ncout.to_netcdf(ncout_filename)
 

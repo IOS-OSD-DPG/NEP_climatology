@@ -47,7 +47,7 @@ for ncfile in ncfiles:
 # Conservative temperature, CT, in deg Celsius
 # Sea pressure, p, must be in DBAR
 # sea_pres = ncdata.PRESPR01.data - 10.1325 # dBar
-#umol_kg = gsw.O2sol(SA=, CT=, p=sea_pres, long=ncdata.longitude.data, lat=ncdata.latitude.data)
+# umol_kg = gsw.O2sol(SA=, CT=, p=sea_pres, long=ncdata.longitude.data, lat=ncdata.latitude.data)
 
 
 # Convert pressure to depth for MEDS
