@@ -3,7 +3,7 @@ Take the regular grid field from DIVAnd and linearly-interpolate it to
 Mike Foreman's unstructured triangle grid
 """
 import pandas as pd
-from scipy.interpolate import interp2d, griddata
+from scipy.interpolate import griddata
 from xarray import open_dataset
 import os
 import numpy as np
@@ -12,6 +12,7 @@ import numpy as np
 from haversine import haversine
 from tqdm import trange
 from clim_helpers import deg2km
+
 
 # Set constants
 var = 'Oxy'
@@ -40,15 +41,16 @@ field_filename = os.path.join(
 
 reg_field = open_dataset(field_filename)
 
-# Create 2d interpolation function
 # Convert longitude to positive
 lon_diva = reg_field.Longitude.data + 360.
 lat_diva = reg_field.Latitude.data
 vout = reg_field.analysis.data + reg_field.pre_analysis_obs_mean.data
-func = interp2d(x=lon_diva, y=lat_diva,
-                z=vout, kind='linear', bounds_error=False, fill_value=np.NaN)
 
-# -------Subset grid_data to reg_field size to avoid runtime error------------
+# # Create 2d interpolation function
+# func = interp2d(x=lon_diva, y=lat_diva,
+#                 z=vout, kind='linear', bounds_error=False, fill_value=np.NaN)
+
+# -----------Subset grid_data to reg_field size to avoid runtime error---------------------
 
 # Called "clipping" in ArcGIS lingo
 
@@ -109,6 +111,10 @@ for i in trange(len(sl_data)):
 
 trigrid_lon_subset = trigrid_data['lon'][mask_trigrid]
 trigrid_lat_subset = trigrid_data['lat'][mask_trigrid]
+trigrid_node_subset = trigrid_data['node'][mask_trigrid]
+
+print(len(trigrid_lon_subset))
+print(len(trigrid_lat_subset))
 
 # # Don't clip and just use rectangular subset of NEP instead -- TOO LARGE STILL
 # lon_diva2d, lat_diva2d = np.meshgrid(lon_diva, lat_diva)
@@ -123,12 +129,132 @@ trigrid_lat_subset = trigrid_data['lat'][mask_trigrid]
 # grid_lon_subset = grid_data['lon'][grid_lonlat_subsetter]
 # grid_lat_subset = grid_data['lat'][grid_lonlat_subsetter]
 
-
-# Call the linear interpolating function on the clipped coordinates of the
-# unstructured triangle grid
-tri_field = func(trigrid_lon_subset, trigrid_lat_subset)
-
+# # Call the linear interpolating function on the clipped coordinates of the
+# # unstructured triangle grid
+# tri_field = func(trigrid_lon_subset, trigrid_lat_subset)
 
 # Use griddata?
-grid_linear = griddata(points=(lon_diva, lat_diva), values=vout,
-                       xi=(trigrid_lon_subset, trigrid_lat_subset), method='linear')
+lon_diva2d, lat_diva2d = np.meshgrid(lon_diva, lat_diva)
+print(lon_diva2d, lat_diva2d, sep='\n')
+
+vout_flat = vout.flatten()
+lon_diva2d_flat = lon_diva2d.flatten()[~np.isnan(vout_flat)]
+lat_diva2d_flat = lat_diva2d.flatten()[~np.isnan(vout_flat)]
+vout_flat = vout_flat[~np.isnan(vout_flat)]
+
+result_tri_interp = griddata(points=(lon_diva2d_flat, lat_diva2d_flat), values=vout_flat,
+                             xi=(trigrid_lon_subset, trigrid_lat_subset), method='linear',
+                             fill_value=np.nan)
+
+print(result_tri_interp)
+print(result_tri_interp.shape)
+
+# Clean up nan values?
+result_tri_interp_qc = result_tri_interp[~np.isnan(result_tri_interp)]
+trigrid_lon_subset_qc = trigrid_lon_subset[~np.isnan(result_tri_interp)]
+trigrid_lat_subset_qc = trigrid_lat_subset[~np.isnan(result_tri_interp)]
+trigrid_node_subset_qc = trigrid_node_subset[~np.isnan(result_tri_interp)]
+
+print(result_tri_interp_qc)
+
+# ------------------Plot the linearly-interpolated data-----------------------------------
+# Copied from Lu Guan T_climatology.py
+
+from scipy.spatial import Delaunay
+from matplotlib.tri import Triangulation, TriAnalyzer, UniformTriRefiner
+import matplotlib.tri as mtri
+from mpl_toolkits.basemap import Basemap
+import matplotlib.pyplot as plt
+
+tri_filename = os.path.join(mforeman_dir + 'nep35_reord.tri')
+
+tri_data = np.genfromtxt(tri_filename, skip_header=0, skip_footer=0, usecols=(1, 2, 3))-1
+
+# Initialize boolean mask
+tri_mask = np.repeat(True, len(tri_data))
+
+# Subset tri_data to fit the subsetted trigrid lon and lat
+for i in trange(len(tri_data)):
+    # Check whether each node in each row of tri_data is in trigrid lon and lat
+    # If not, flag the offending row to remove it later
+    node1, node2, node3 = [tri_data[i, 0], tri_data[i, 1], tri_data[i, 2]]
+    if (node1 not in trigrid_node_subset_qc or node2 not in trigrid_node_subset_qc
+            or node3 not in trigrid_node_subset_qc):
+        tri_mask[i] = False
+
+tri_data_subset = tri_data[tri_mask]
+print(len(tri_data_subset))
+print(len(tri_data), len(tri_data_subset)/len(tri_data))
+
+# Create the plot
+left_lon, right_lon, bot_lat, top_lat = [-160, -102, 25, 62]
+
+m = Basemap(llcrnrlon=left_lon, llcrnrlat=bot_lat,
+            urcrnrlon=right_lon, urcrnrlat=top_lat,
+            projection='lcc',  # width=40000, height=40000, #lambert conformal project
+            resolution='h', lat_0=0.5 * (bot_lat + top_lat),
+            lon_0=0.5 * (left_lon + right_lon))  # lat_0=53.4, lon_0=-129.0)
+
+# lcc: Lambert Conformal Projection;
+# cyl: Equidistant Cylindrical Projection
+# merc: Mercator Projection
+
+xpt, ypt = m(trigrid_lon_subset_qc, trigrid_lat_subset_qc)
+tri_pt = mtri.Triangulation(xpt, ypt, tri_data_subset)
+
+tri = mtri.Triangulation(trigrid_lon_subset, trigrid_lat_subset, tri_data_subset)
+
+triangles = tri.triangles
+
+fig = plt.figure(num=None, figsize=(8, 6), dpi=100)
+m.drawcoastlines(linewidth=0.2)
+m.drawmapboundary(fill_color='white')
+m.fillcontinents(color='0.8')
+
+# set the nan to white on the map
+color_map = plt.cm.get_cmap()
+color_map.set_bad('w')
+
+cax = plt.tripcolor(xpt, ypt, triangles, var, cmap='YlOrBr', edgecolors='none',
+                    vmin=np.nanmin(var), vmax=np.nanmax(var))
+
+cbar = fig.colorbar(cax, shrink=0.7) #set scale bar
+cbar.set_label('Temperature [°C]', size=14) #scale label
+# labels = [left,right,top,bottom]
+parallels = np.arange(bot_lat, top_lat, 4.)  # parallels = np.arange(48., 54, 0.2); parallels = np.linspace(bot_lat, top_lat, 10)
+m.drawparallels(parallels, labels=[True, False, False, False])  #draw parallel lat lines
+meridians = np.arange(left_lon, -100.0, 15.)  # meridians = np.linspace(int(left_lon), right_lon, 5)
+m.drawmeridians(meridians, labels=[False, False, True, True])
+# plt.show()
+png_name = ''
+
+plt.close(fig)
+
+# ------------------Save the linearly-interpolated data to csv??--------------------------
+
+lin_interp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                 'value_vs_depth\\17_lin_interp_to_trigrid\\'
+csv_outname = os.path.join(lin_interp_dir + '{}_{}m_{}_{}_tri.csv'.format(
+    var, standard_depth, year, szn))
+
+df_lin = pd.DataFrame(
+    data=np.array([trigrid_node_subset_qc, trigrid_lon_subset_qc, trigrid_lat_subset_qc,
+                   result_tri_interp_qc]).transpose(),
+    columns=['Node', 'Longitude', 'Latitude', 'Value'])
+
+print(df_lin)
+
+df_lin.Node = df_lin.Node.astype(int)
+
+# Should I remove all NaN values?
+print(len(df_lin.dropna()))
+# See what percentage of values are not NaNs
+print(len(df_lin.dropna()) / len(df_lin))
+
+print(df_lin.dropna())
+
+df_lin.dropna(inplace=True)
+
+print(df_lin)
+
+df_lin.to_csv(csv_outname, index=False)
