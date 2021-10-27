@@ -14,7 +14,7 @@ Must set PYTHONPATH each session.
 import pandas as pd
 import numpy as np
 import os
-from clim_helpers import get_standard_levels
+from clim_helpers import get_standard_levels, deg2km
 import matplotlib.pyplot as plt
 import xarray as xr
 from tqdm import trange
@@ -23,19 +23,11 @@ import haversine as hs
 import DIVAnd
 
 
-def deg2km(dlat):
-    # From DIVAnd.jl
-    # Mean radius (http://en.wikipedia.org/wiki/Earth_radius) in km
-    R = 6371.009
-
-    return dlat * (2 * np.pi * R) / 360
-
-
 # Access command prompt
 # os.system('cmd /c "set PYTHONPATH=%PYTHONPATH%;C:\\Users\\HourstonH\\DIVAnd.py\\DIVAnd\\"')
 
 var = 'Oxy'
-var_units = 'umol/kg'
+var_units = r'$\mu$' + 'mol/kg'  # Micromol per kilogram
 year = 2010
 szn = 'OND'
 standard_depth = 5
@@ -100,10 +92,12 @@ print(len(mask_v2[mask_v2 == 1]), len(mask_v2[mask_v2 == 0]))
 print('Recalculating mask...')
 
 for i in trange(len(vobs)):
+    # Create tuple of the lon/lat of each standard level observation point
     obs_loc = (xobs[i], yobs[i])
     for j in range(len(Lat)):
         for k in range(len(Lon[0])):
             # Check if mask is True, otherwise pass
+            # Also pass if mask_v2[j, k] == 2, so it's already been checked
             if mask_v2[j, k] == 1:
                 grid_loc = (Lon[j, k], Lat[j, k])
                 dist = hs.haversine(obs_loc, grid_loc)
@@ -189,6 +183,7 @@ va = DIVAnd.DIVAnd(mask_v3, (pm, pn), (Lon, Lat), (xobs, yobs), vanom,
 #   observations before calling DIVAnd and then add the first guess back in.
 
 # JULIA (error): knot-vectors must be unique and sorted in increasing order
+# Fixed by ordering lat in increasing order
 
 print(va.shape)
 print(np.min(va), np.max(va))

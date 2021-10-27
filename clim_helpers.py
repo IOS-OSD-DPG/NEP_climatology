@@ -79,3 +79,11 @@ def get_standard_levels(fpath_sl):
     # Convert list to array
     sl_arr = np.array(sl_list_v2)
     return sl_arr
+
+
+def deg2km(dlat):
+    # From DIVAnd.jl
+    # Mean radius (http://en.wikipedia.org/wiki/Earth_radius) in km
+    R = 6371.009
+
+    return dlat * (2 * np.pi * R) / 360

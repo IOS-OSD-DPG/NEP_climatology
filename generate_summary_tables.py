@@ -143,14 +143,15 @@ df_out.to_csv(df_name, index=True)
 # Do at each processing step
 indir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\'
 
-subdirs = ['1_original', '3_filtered_for_duplicates', '4_filtered_for_quality_flag',
-           '5_filtered_for_nans', '6_depth_check', '7_range_check',
-           '8_gradient_check', '8_gradient_check\\latlon_check']
+subdirs = ['1_original', '3_filtered_for_duplicates', '4_latlon_check',
+           '5_filtered_for_quality_flag', '6_filtered_for_nans', '7_depth_check',
+           '8_range_check', '9_gradient_check']
 
 outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_explore\\' \
          'oxygen\\profile_counts\\'
 
 for i in range(len(subdirs) - 1):
+    # Check for files with "done" in the file name
     infiles1 = glob.glob(indir + subdirs[i] + '\\*Oxy*done.csv')
     infiles2 = glob.glob(indir + subdirs[i + 1] + '\\*Oxy*done.csv')
     
