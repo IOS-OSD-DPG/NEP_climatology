@@ -4,7 +4,7 @@ To run, follow these steps:
 
 Command prompt:
 >conda activate clim38
->set PYTHONPATH=%PYTHONPATH%;C:\Users\HourstonH\DIVAnd.py\DIVAnd\
+>set PYTHONPATH=%PYTHONPATH%;C:\\Users\\HourstonH\\DIVAnd.py\\DIVAnd\\
 cd to the directory that 16_run_DIVAnd.py is in, then:
 >python 16_run_DIVAnd.py
 
@@ -30,8 +30,9 @@ var = 'Oxy'
 var_units = r'$\mu$' + 'mol/kg'  # Micromol per kilogram
 year = 2010
 szn = 'OND'
-standard_depth = 5
+standard_depth = 0
 radius_deg = 2  # search radius
+radius_km = deg2km(radius_deg)  # degrees length
 
 # Get standard levels file
 sl_filename = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
@@ -53,38 +54,111 @@ xobs = np.array(data.Longitude)
 yobs = np.array(data.Latitude)
 vobs = np.array(data.SL_value)
 
-# Get mask file
-mask_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\'
-mask_filename = os.path.join(mask_dir + 'landsea_04_nep.msk')
+# ---------------------------Get mask file-------------------------------------------------
 
-mask_df = pd.read_csv(mask_filename)
-# print(mask_df.columns)
-print('Mask range:', min(mask_df.Bottom_Standard_level), max(mask_df.Bottom_Standard_level))
+# mask_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\'
+# mask_filename = os.path.join(mask_dir + 'landsea_04_nep.msk')
+#
+# mask_df = pd.read_csv(mask_filename)
+# # print(mask_df.columns)
+# print('Mask range:', min(mask_df.Bottom_Standard_level), max(mask_df.Bottom_Standard_level))
+#
+# # Create 2d grid of lat and lon points by reshaping the mask_df columns
+# # Find dims to reshape columns to
+# unique, counts = np.unique(mask_df.Longitude, return_counts=True)
+# print('counts length:', len(counts))
+# # print(counts)
+#
+# Lon = np.array(mask_df.Longitude).reshape((counts[0], len(counts)))
+# Lat = np.array(mask_df.Latitude).reshape((counts[0], len(counts)))
+# # DO NOt Have to reverse order of Lat so that Latitude is decreasing each row
+#
+# # Create boolean mask based on standard level of the input obs
+# sl_index = np.where(sl_arr == standard_depth)[0][0]
+# # Indexing of sl_arr starts @ 0, while standard level counting starts at 2!
+# # Bottom_Standard_level starts at 1, which is land, so ocean starts at 2
+# mask = mask_df.Bottom_Standard_level >= (sl_index + 2)
+# # Reshape mask to be same shape as Lat and Lon
+# mask = np.array(mask).reshape((counts[0], len(counts)))
+#
+# # Further limit mask according to sampling locations
+# # Determine radius around sampling points to limit mask to? 10 deg maybe?
+# # Need arcpy for this?
+# radius_km = deg2km(radius_deg)  # degrees length
+#
+# mask_v2 = np.zeros(shape=mask.shape)
+# mask_v2[mask] = 1
+#
+# print(len(mask_v2[mask_v2 == 1]), len(mask_v2[mask_v2 == 0]))
+#
+# print('Recalculating mask...')
+#
+# for i in trange(len(vobs)):
+#     # Create tuple of the lon/lat of each standard level observation point
+#     obs_loc = (xobs[i], yobs[i])
+#     for j in range(len(Lat)):
+#         for k in range(len(Lon[0])):
+#             # Check if mask is True, otherwise pass
+#             # Also pass if mask_v2[j, k] == 2, so it's already been checked
+#             if mask_v2[j, k] == 1:
+#                 grid_loc = (Lon[j, k], Lat[j, k])
+#                 dist = hs.haversine(obs_loc, grid_loc)
+#                 # print(dist)
+#                 if dist < radius_km:
+#                     mask_v2[j, k] = 2
+#
+# print(len(mask_v2[mask_v2 == 2]), len(mask_v2[mask_v2 == 1]))
+#
+# # Create boolean mask version
+# mask_v3 = np.empty(shape=mask_v2.shape, dtype=bool)
+# mask_v3[mask_v2 == 2] = True
+# mask_v3[mask_v2 != 2] = False
 
-# Create 2d grid of lat and lon points by reshaping the mask_df columns
-# Find dims to reshape columns to
-unique, counts = np.unique(mask_df.Longitude, return_counts=True)
-print('counts length:', len(counts))
-# print(counts)
+# ---------Test DIVA-provided bathymetry----------------RESOLVED
+# Is my problem with the WOA bathymetry, or with the data, or the input
+# parameters?
 
-Lon = np.array(mask_df.Longitude).reshape((counts[0], len(counts)))
-Lat = np.array(mask_df.Latitude).reshape((counts[0], len(counts)))
-# DO NOt Have to reverse order of Lat so that Latitude is decreasing each row
+# # bathymetry
+# bath_dir = 'C:\\Users\\HourstonH\\DIVAnd.py\\examples\\'
+# bath_name = os.path.join(bath_dir + "diva_bath.nc")
+#
+# # nc = netCDF4.Dataset(fname)
+# nc = xr.open_dataset(bath_name)
+#
+# # b = nc.variables["bat"][:, :]
+# # lon = nc.variables["lon"][:]
+# # lat = nc.variables["lat"][:]
+# b = nc.bat.data
+# lon = nc.lon.data
+# lat = nc.lat.data
+#
+# print(b.shape, lon.shape, lat.shape)
+# # (160, 361) (361,) (160,)
+#
+# Lon, Lat = np.meshgrid(lon, lat)
+# mask = b < 0
 
-# Create boolean mask based on standard level of the input obs
-sl_index = np.where(sl_arr == standard_depth)[0][0]
-# Indexing of sl_arr starts @ 0, while standard level counting starts at 2!
-# Bottom_Standard_level starts at 1, which is land, so ocean starts at 2
-mask = mask_df.Bottom_Standard_level >= (sl_index + 2)
-# Reshape mask to be same shape as Lat and Lon
-mask = np.array(mask).reshape((counts[0], len(counts)))
+# --------------------Test out GEBCO bathymetry-----------------------------------------
 
-# Further limit mask according to sampling locations
-# Determine radius around sampling points to limit mask to? 10 deg maybe?
-# Need arcpy for this?
-radius_km = deg2km(radius_deg)  # degrees length
+gebco_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\' \
+            'GEBCO_28_Oct_2021_16f8a0236741\\'
 
-mask_v2 = np.zeros(shape=mask.shape)
+gebco_filename = os.path.join(gebco_dir + 'gebco_2021_n60_s30_w-160_e-115.nc')
+
+gebco_bath = xr.open_dataset(gebco_filename)
+
+print(np.diff(gebco_bath.lat.data))
+
+# Create 2d grid of lat and lon
+Lon, Lat = np.meshgrid(gebco_bath.lon.data, gebco_bath.lat.data)
+print(Lon.shape)
+print(Lon)
+print(Lat)
+
+# -1 to convert elevation above sea level to depth below sea level
+mask = -gebco_bath.elevation.data >= standard_depth
+
+mask_v2 = np.zeros(mask.shape, dtype='int')
 mask_v2[mask] = 1
 
 print(len(mask_v2[mask_v2 == 1]), len(mask_v2[mask_v2 == 0]))
@@ -112,32 +186,7 @@ mask_v3 = np.empty(shape=mask_v2.shape, dtype=bool)
 mask_v3[mask_v2 == 2] = True
 mask_v3[mask_v2 != 2] = False
 
-# ---------Test DIVA-provided bathymetry----------------RESOLVED
-# Is my problem with the WOA bathymetry, or with the data, or the input
-# parameters?
-
-# # bathymetry
-# bath_dir = 'C:\\Users\\HourstonH\\DIVAnd.py\\examples\\'
-# bath_name = os.path.join(bath_dir + "diva_bath.nc")
-#
-# # nc = netCDF4.Dataset(fname)
-# nc = xr.open_dataset(bath_name)
-#
-# # b = nc.variables["bat"][:, :]
-# # lon = nc.variables["lon"][:]
-# # lat = nc.variables["lat"][:]
-# b = nc.bat.data
-# lon = nc.lon.data
-# lat = nc.lat.data
-#
-# print(b.shape, lon.shape, lat.shape)
-# # (160, 361) (361,) (160,)
-#
-# Lon, Lat = np.meshgrid(lon, lat)
-# mask = b < 0
-
-
-# ------------------------Calculate input parameters---------------------------
+# --------------------Calculate input parameters and run analysis-----------------------
 
 # Scale factor of the grid
 pm, pn = DIVAnd.metric(Lon, Lat)
@@ -228,7 +277,7 @@ vout = va + vmean
 #       vmin=vmin, vmax=vmax
 # )
 
-plt.pcolor(Lon, Lat, vout, shading='auto', cmap='jet', vmin=150, vmax=400)
+plt.pcolormesh(Lon, Lat, vout, shading='auto', cmap='jet', vmin=150, vmax=400)
 plt.colorbar(label=var_units)  # ticks=range(150, 400 + 1, 50)
 
 # Scatter plot the observation points
@@ -239,7 +288,7 @@ plt.xlim((-160., -115.))
 plt.ylim((30., 60.))
 
 plt_dir = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\outputs\\"
-plt_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_{}deg.png".format(
+plt_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_gebco.png".format(
     var, standard_depth, year, szn, radius_deg))
 plt.savefig(plt_filename, dpi=400)
 
@@ -250,7 +299,7 @@ ncout = xr.Dataset(coords={'Latitude': Lat[:, 0], 'Longitude': Lon[0, :]},
                    data_vars={'analysis': (('Latitude', 'Longitude'), va),
                               'pre_analysis_obs_mean': ((), vmean)})
 
-ncout_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_{}deg.nc".format(
+ncout_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_gebco.nc".format(
     var, standard_depth, year, szn, radius_deg))
 
 ncout.to_netcdf(ncout_filename)
