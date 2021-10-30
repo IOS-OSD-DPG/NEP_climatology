@@ -1,8 +1,10 @@
 import matplotlib.pyplot as plt
+import pandas as pd
 from mpl_toolkits.basemap import Basemap
 import numpy as np
 import os
 import xarray as xr
+import pandas as pd
 
 
 standard_depth = 0
@@ -57,4 +59,51 @@ plt.pcolormesh(gebco_data.lon.data, gebco_data.lat.data, bath,
 output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\'
 png_name = os.path.join(output_dir + 'gebco_2021_6sec_msk.png')
 plt.savefig(png_name)
+plt.close(fig)
+
+# ----------------------Plot nc data from diva analysis-------------------------
+
+var = 'Oxy'
+var_units = r'$\mu$' + 'mol/kg'  # Micromol per kilogram
+year = 2010
+szn = 'OND'
+standard_depth = 0
+
+# DIVA data
+nc_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\outputs\\'
+nc_filename = os.path.join(nc_dir + 'Oxy_0m_2010_OND_analysis2d_gebco.nc')
+
+ncdata = xr.open_dataset(nc_filename)
+
+Lon, Lat = np.meshgrid(ncdata.Longitude.data, ncdata.Latitude.data)
+
+vout = ncdata.analysis.data + ncdata.pre_analysis_obs_mean.data
+
+# Standard level data
+sl_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
+         '14_sep_by_sl_and_year\\'
+sl_filename = os.path.join(sl_dir + 'Oxy_0m_2010_OND.csv')
+
+sldata = pd.read_csv(sl_filename)
+
+xobs = np.array(sldata.Longitude)
+yobs = np.array(sldata.Latitude)
+
+fig = plt.figure(num=None, figsize=(8, 6), dpi=400)
+
+plt.pcolormesh(Lon, Lat, vout, shading='auto', cmap='jet', vmin=150, vmax=400)
+plt.colorbar(label=var_units)  # ticks=range(150, 400 + 1, 50)
+
+# Scatter plot the observation points
+plt.scatter(xobs, yobs, c='k', s=0.1)
+
+# Set limits
+plt.xlim((-160., -115.))
+plt.ylim((30., 60.))
+
+plt_dir = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\outputs\\"
+plt_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_gebco.png".format(
+    var, standard_depth, year, szn))
+plt.savefig(plt_filename, dpi=400)
+
 plt.close(fig)

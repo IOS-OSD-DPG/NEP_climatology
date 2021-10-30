@@ -21,6 +21,7 @@ from tqdm import trange
 import haversine as hs
 # from mpl_toolkits.basemap import Basemap
 import DIVAnd
+import time
 
 
 # Access command prompt
@@ -147,44 +148,80 @@ gebco_filename = os.path.join(gebco_dir + 'gebco_2021_n60_s30_w-160_e-115.nc')
 
 gebco_bath = xr.open_dataset(gebco_filename)
 
-print(np.diff(gebco_bath.lat.data))
+# print(np.diff(gebco_bath.lat.data))
 
 # Create 2d grid of lat and lon
 Lon, Lat = np.meshgrid(gebco_bath.lon.data, gebco_bath.lat.data)
 print(Lon.shape)
-print(Lon)
-print(Lat)
+# print(Lon)
+# print(Lat)
+
+# Find limits for range of standard level observations
+lon_min, lon_max, lat_min, lat_max = [np.nanmin(xobs), np.nanmax(xobs),
+                                      np.nanmin(yobs), np.nanmax(yobs)]
 
 # -1 to convert elevation above sea level to depth below sea level
-mask = -gebco_bath.elevation.data >= standard_depth
+# Subset out obviously out lat/lon
+mask = (-gebco_bath.elevation.data >= standard_depth) & (Lon >= lon_min - radius_deg) & \
+       (Lon <= lon_max + radius_deg) & (Lat >= lat_min - radius_deg) & \
+       (Lat <= lat_max + radius_deg)
 
-mask_v2 = np.zeros(mask.shape, dtype='int')
-mask_v2[mask] = 1
-
-print(len(mask_v2[mask_v2 == 1]), len(mask_v2[mask_v2 == 0]))
+# mask_v2 = np.zeros(mask.shape, dtype='int')
+# mask_v2[mask] = 1
+#
+# print(len(mask_v2[mask_v2 == 1]), len(mask_v2[mask_v2 == 0]))
 
 print('Recalculating mask...')
 
+# # Very slow (10 hours for 336 vobs)
+# for i in trange(len(vobs)):
+#     # Create tuple of the lon/lat of each standard level observation point
+#     obs_loc = (xobs[i], yobs[i])
+#     for j in range(len(Lat)):
+#         for k in range(len(Lon[0])):
+#             # Check if mask is True, otherwise pass
+#             # Also pass if mask_v2[j, k] == 2, so it's already been checked
+#             if mask_v2[j, k] == 1:
+#                 grid_loc = (Lon[j, k], Lat[j, k])
+#                 dist = hs.haversine(obs_loc, grid_loc)
+#                 # print(dist)
+#                 if dist < radius_km:
+#                     mask_v2[j, k] = 2
+#
+# print(len(mask_v2[mask_v2 == 2]), len(mask_v2[mask_v2 == 1]))
+#
+# # Create boolean mask version
+# mask_v3 = np.empty(shape=mask_v2.shape, dtype=bool)
+# mask_v3[mask_v2 == 2] = True
+# mask_v3[mask_v2 != 2] = False
+
+# Another try to speed up computations...
+
+# Flatten the boolean mask
+mask_flat = mask.flatten()
+mask_v2_flat = np.zeros(len(mask_flat), dtype=int)
+mask_v2_flat[mask_flat] = 1
+
+# start_time = time.time()
 for i in trange(len(vobs)):
     # Create tuple of the lon/lat of each standard level observation point
     obs_loc = (xobs[i], yobs[i])
-    for j in range(len(Lat)):
-        for k in range(len(Lon[0])):
-            # Check if mask is True, otherwise pass
-            # Also pass if mask_v2[j, k] == 2, so it's already been checked
-            if mask_v2[j, k] == 1:
-                grid_loc = (Lon[j, k], Lat[j, k])
-                dist = hs.haversine(obs_loc, grid_loc)
-                # print(dist)
-                if dist < radius_km:
-                    mask_v2[j, k] = 2
 
-print(len(mask_v2[mask_v2 == 2]), len(mask_v2[mask_v2 == 1]))
+    # print(i, 'Creating dist_arr...')
+    start_dist = time.time()
+    dist_arr = np.repeat(np.nan, len(Lon.flatten()))
+    dist_arr[mask_flat] = np.array(list(map(
+        lambda x, y: hs.haversine(obs_loc, (x, y)), Lon[mask], Lat[mask])))
+    # print(i, 'Dist time: %s seconds' % (time.time() - start_dist))
 
-# Create boolean mask version
-mask_v3 = np.empty(shape=mask_v2.shape, dtype=bool)
+    mask_v2_flat[dist_arr < radius_km] = 2
+
+# print("--- %s seconds ---" % (time.time() - start_time))
+
+# Reshape flattened mask back to 2d
+mask_v2 = mask_v2_flat.reshape(Lon.shape)
+mask_v3 = np.repeat(False, mask_v2.shape)
 mask_v3[mask_v2 == 2] = True
-mask_v3[mask_v2 != 2] = False
 
 # --------------------Calculate input parameters and run analysis-----------------------
 
@@ -192,12 +229,12 @@ mask_v3[mask_v2 != 2] = False
 pm, pn = DIVAnd.metric(Lon, Lat)
 # print(pm, pn, sep='\n')
 
-# For first guess correlation length, can use a value between 1/10 domain size and
-# the domain size
-# Also can try optimization on correlation length
-domain_size_deg = -115-(-160)
-deg2m = 111e3  # This is an approximation
-domain_size_m = domain_size_deg * deg2m
+# # For first guess correlation length, can use a value between 1/10 domain size and
+# # the domain size
+# # Also can try optimization on correlation length
+# domain_size_deg = -115-(-160)
+# deg2m = 111e3  # This is an approximation
+# domain_size_m = domain_size_deg * deg2m
 # print(domain_size_m/10)
 
 # Decreasing the correlation length decreases the "smoothness"
@@ -207,7 +244,7 @@ leny = 500e3  # 800e3  # in meters
 # error variance of the observations (normalized by the error variance of
 # the background field)
 # If epsilon2 is a scalar, it is thus the inverse of the signal-to-noise ratio
-signal_to_noise_ratio = 50.  # Default from Lu ODV
+signal_to_noise_ratio = 50.  # Default from Lu ODV session
 epsilon2 = 1/signal_to_noise_ratio  # 1.
 
 # Compute anomalies (i.e., subtract mean)
@@ -281,7 +318,7 @@ plt.pcolormesh(Lon, Lat, vout, shading='auto', cmap='jet', vmin=150, vmax=400)
 plt.colorbar(label=var_units)  # ticks=range(150, 400 + 1, 50)
 
 # Scatter plot the observation points
-plt.scatter(xobs, yobs, c='k', s=5)
+plt.scatter(xobs, yobs, c='k', s=0.1)
 
 # Set limits
 plt.xlim((-160., -115.))
@@ -289,7 +326,7 @@ plt.ylim((30., 60.))
 
 plt_dir = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\outputs\\"
 plt_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_gebco.png".format(
-    var, standard_depth, year, szn, radius_deg))
+    var, standard_depth, year, szn))
 plt.savefig(plt_filename, dpi=400)
 
 # ---------------Export the results as a netCDF file-------------------------
@@ -300,7 +337,7 @@ ncout = xr.Dataset(coords={'Latitude': Lat[:, 0], 'Longitude': Lon[0, :]},
                               'pre_analysis_obs_mean': ((), vmean)})
 
 ncout_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_gebco.nc".format(
-    var, standard_depth, year, szn, radius_deg))
+    var, standard_depth, year, szn))
 
 ncout.to_netcdf(ncout_filename)
 
