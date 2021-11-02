@@ -6,6 +6,7 @@ from tqdm import trange
 import haversine as hs
 from clim_helpers import deg2km
 
+
 # -----------------------------Choose data file----------------------------------
 var_name = 'Oxy'
 year = 2010
@@ -81,7 +82,7 @@ for depth in standard_depth:
 
     # Reshape flattened mask back to 2d
     mask_v2 = mask_v2_flat.reshape(Lon.shape)
-    mask_v3 = np.repeat(False, mask_v2.shape)
+    mask_v3 = np.repeat(False, mask_v2_flat.shape).reshape(Lon.shape)
     mask_v3[mask_v2 == 2] = True
 
     # Export boolean mask to netCDF file
