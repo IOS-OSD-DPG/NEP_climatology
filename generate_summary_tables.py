@@ -2,13 +2,11 @@
 Generate summary tables for NEP climatology
 Organize by instrument, season/year
 
-Do lat/lon check earlier??
 """
 
 import pandas as pd
 import numpy as np
 import glob
-from vvd_check_latlon import vvd_subset_latlon
 from clim_helpers import date_string_to_datetime
 from os.path import basename
 
@@ -122,19 +120,16 @@ dir1 = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 
 files1 = glob.glob(dir1 + '*Oxy*.csv')
 
-dir8 = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+dir9 = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
        'value_vs_depth\\9_gradient_check\\'
 
-file8 = dir8 + 'Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
+file9 = dir9 + 'Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
 
-# # Need to apply lat/lon check to file8 !!!!!!
-# file8_ll = vvd_subset_latlon(file8, dir8 + 'latlon_check\\')
-
-df_out = make_summary_table(files1, [file8])
+df_out = make_summary_table(files1, [file9])
 
 # Export
 df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_explore\\' \
-          'oxygen\\Oxy_summary_prof_count_table.csv'
+          'oxygen\\profile_counts\\Oxy_summary_prof_count_table_19.csv'
 
 # Want to keep index
 df_out.to_csv(df_name, index=True)
@@ -150,21 +145,22 @@ subdirs = ['1_original', '3_filtered_for_duplicates', '4_latlon_check',
 outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_explore\\' \
          'oxygen\\profile_counts\\'
 
-for i in range(len(subdirs) - 1):
+for j in range(len(subdirs) - 1):
     # Check for files with "done" in the file name
-    infiles1 = glob.glob(indir + subdirs[i] + '\\*Oxy*done.csv')
-    infiles2 = glob.glob(indir + subdirs[i + 1] + '\\*Oxy*done.csv')
+    infiles1 = glob.glob(indir + subdirs[j] + '\\*Oxy*done.csv')
+    infiles2 = glob.glob(indir + subdirs[j + 1] + '\\*Oxy*done.csv')
     
     if len(infiles1) == 0:
-        infiles1 = glob.glob(indir + subdirs[i] + '\\*Oxy*.csv')
+        infiles1 = glob.glob(indir + subdirs[j] + '\\*Oxy*.csv')
         
     if len(infiles2) == 0:
-        infiles2 = glob.glob(indir + subdirs[i + 1] + '\\*Oxy*.csv')
+        infiles2 = glob.glob(indir + subdirs[j + 1] + '\\*Oxy*.csv')
     
     df_out = make_summary_table(infiles1, infiles2)
-    
-    step1 = subdirs[i][0]
-    step2 = subdirs[i + 1][0]
+
+    # Index the number in the subdir name, which is the order of cleaning
+    step1 = subdirs[j][0]
+    step2 = subdirs[j + 1][0]
     outname = outdir + 'Oxy_summary_prof_count_table{}{}.csv'.format(step1, step2)
     
     df_out.to_csv(outname, index=True)

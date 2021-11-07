@@ -44,7 +44,7 @@ def DIVAnd_cv(mask, pmn, xi, x, f, corlen, epsilon2, nl, ne, method=0):
     :return cvinter: the interpolated cv values for final optimisation
     :returns X2Data, Y2Data: coordinates of sampled cross validation in L,epsilon2 space.
     Normally only used for debugging or plotting
-    :returns Xi2D, Yi2d: coordinates of interpolated estimator . Normally only used for
+    :returns Xi2D, Yi2d: coordinates of interpolated estimator. Normally only used for
     debugging or plotting
     """
     bestfactorl, bestfactore, cvval, cvvalues, x2Ddata, y2Ddata, cvinter, xi2D, yi2D = D.DIVAnd_cv(
