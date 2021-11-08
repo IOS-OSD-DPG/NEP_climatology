@@ -11,7 +11,7 @@ from clim_helpers import deg2km
 var_name = 'Oxy'
 years = np.arange(1991, 2021)  # [1995, 2005]
 szns = ['JFM', 'AMJ', 'JAS', 'OND']
-standard_depth = 5100
+standard_depth = 4900
 radius_deg = 2  # search radius
 radius_km = deg2km(radius_deg)  # degrees length
 # -------------------------------------------------------------------------------

@@ -27,7 +27,8 @@ files = [(0, 1991, 'JFM'), (0, 1991, 'AMJ'), (0, 1991, 'JAS'), (0, 1991, 'OND'),
 mask_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
            '16_diva_analysis\\masks\\'
 
-output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\cross_validation\\'
+output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\' \
+             'cross_validation\\'
 
 # --------------------------------------------------------------------------------
 
@@ -71,9 +72,11 @@ for f in files:
 
     # Subset mask to speed up computations and avoid Cholesky factorization failure??
     mask_lon_subsetter = np.where(
-        (mask_data.lon.data >= np.min(xobs) - 2) & (mask_data.lon.data <= np.max(xobs) + 2))[0]
+        (mask_data.lon.data >= np.min(xobs) - 2) &
+        (mask_data.lon.data <= np.max(xobs) + 2))[0]
     mask_lat_subsetter = np.where(
-        (mask_data.lat.data >= np.min(yobs) - 2) & (mask_data.lat.data <= np.max(yobs) + 2))[0]
+        (mask_data.lat.data >= np.min(yobs) - 2) &
+        (mask_data.lat.data <= np.max(yobs) + 2))[0]
 
     for subsamp_interval in subsamp_interval_list:
         print()
