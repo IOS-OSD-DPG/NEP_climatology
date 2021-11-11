@@ -2,7 +2,6 @@ from DIVAnd_cv import DIVAnd_cv
 import pandas as pd
 import numpy as np
 import os
-from clim_helpers import get_standard_levels
 from xarray import open_dataset
 import time
 import DIVAnd

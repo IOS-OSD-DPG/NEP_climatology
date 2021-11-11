@@ -10,12 +10,13 @@ For treating data for NEP ocean climatology update
 ## Installation
 To install the project requirements in a conda virtual environment (my_venv): \
 `conda activate my_venv` \
-`conda install pandas numpy gsw tqdm matplotlib r-oce conda-build` \
+`conda install pandas numpy gsw tqdm matplotlib r-oce conda-build dask` \
 `conda install -c conda-forge rpy2` 
 
 Install basemap: follow the instructions at https://matplotlib.org/basemap/users/index.html (or install easily with Pycharm if using)
 
-Install DIVAnd.py: https://github.com/gher-ulg/DIVAnd.py
+Install DIVAnd.py: https://github.com/gher-ulg/DIVAnd.py \
+(I was able to install and use this on a Windows computer with no issues)
 
 ## Miscellaneous links
 * CIOOS Pacific search by organization: https://catalogue.cioospacific.ca/organization
