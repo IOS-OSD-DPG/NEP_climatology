@@ -161,7 +161,7 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
 var_name = 'Oxy'
 years = np.arange(1991, 2021)  # [1995, 2005]
 szns = ['JFM', 'AMJ', 'JAS', 'OND']
-standard_depths = [4000]
+standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
 radius_deg = 2  # search radius
 radius_km = deg2km(radius_deg)  # degrees length
 

@@ -18,9 +18,11 @@ var_name = 'Oxy'
 subsamp_interval_list = [50, 40, 30, 20, 10, 5]  # 3 or 5 is minimum possible
 
 # files = [(10, 2013, 'JAS'), (5200, 1993, 'OND'), (20, 1991, 'AMJ')]
-files = [(0, 1991, 'JFM'), (0, 1991, 'AMJ'), (0, 1991, 'JAS'), (0, 1991, 'OND'),
-         (0, 2000, 'JFM'), (0, 2000, 'AMJ'), (0, 2000, 'JAS'), (0, 2000, 'OND'),
-         (50, 1995, 'JFM'), (50, 1995, 'AMJ'), (50, 1995, 'JAS'), (50, 1995, 'OND')]
+# files = [(0, 1991, 'JFM'), (0, 1991, 'AMJ'), (0, 1991, 'JAS'), (0, 1991, 'OND'),
+#          (0, 2000, 'JFM'), (0, 2000, 'AMJ'), (0, 2000, 'JAS'), (0, 2000, 'OND'),
+#          (50, 1995, 'JFM'), (50, 1995, 'AMJ'), (50, 1995, 'JAS'), (50, 1995, 'OND')]
+
+files = [(5, 2016, 'AMJ')]
 
 # GEBCO 6 minute mask
 mask_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
@@ -138,8 +140,8 @@ for f in files:
         # print(domain_size_m/10)
 
         # Decreasing the correlation length decreases the "smoothness"
-        lenx = 500e3  # 800e3  # in meters
-        leny = 500e3  # 800e3  # in meters
+        lenx = 500e3  # 2.56  # 500e3  # 800e3  # in meters
+        leny = 500e3  # 2.56  # 500e3  # 800e3  # in meters
 
         # error variance of the observations (normalized by the error variance of
         # the background field)

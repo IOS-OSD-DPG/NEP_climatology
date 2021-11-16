@@ -17,9 +17,6 @@ import os
 from clim_helpers import get_standard_levels, deg2km
 import matplotlib.pyplot as plt
 import xarray as xr
-from tqdm import trange
-import haversine as hs
-import time
 from DIVAnd_cv import DIVAnd_cv
 # from mpl_toolkits.basemap import Basemap
 import DIVAnd
@@ -33,7 +30,7 @@ var_name = 'Oxy'
 var_units = r'$\mu$' + 'mol/kg'  # Micromol per kilogram
 
 # Test files with diverging (not stabilizing to a point) estimates of corlen and epsilon2
-file_info = (0, 1991, 'AMJ')  # (0, 1991, 'JFM')
+file_info = (5, 2016, 'AMJ')  # (0, 2000, 'AMJ')  # (0, 1991, 'JFM')
 standard_depth = file_info[0]
 year = file_info[1]
 szn = file_info[2]
@@ -46,6 +43,9 @@ var_cmap = 'Blues'  # matplotlib colormap to use for plotting the DIVAnd field
 
 # Mask subsampling interval for cross-validation
 mask_subsamp_int = 10
+
+# Set lenxy from DIVAnd fithorzlen()
+lenxy_oxy = 500e3  # 2.56  # 1.55
 # -------------------------------------------------------------------------------------------
 
 # Get standard levels file
@@ -130,71 +130,7 @@ vobs = np.array(data.SL_value)
 # mask_v3[mask_v2 == 2] = True
 # mask_v3[mask_v2 != 2] = False
 
-# --------------------Test out GEBCO bathymetry-----------------------------------------
-
-
-def update_gebco_bath(lon_obs, lat_obs, search_radius):
-    gebco_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\' \
-                'GEBCO_28_Oct_2021_16f8a0236741\\'
-
-    gebco_filename = os.path.join(gebco_dir + 'gebco_2021_n60_s30_w-160_e-115.nc')
-
-    gebco_bath = xr.open_dataset(gebco_filename)
-
-    # print(np.diff(gebco_bath.lat.data))
-
-    # Create 2d grid of lat and lon
-    Lon2d, Lat2d = np.meshgrid(gebco_bath.lon.data, gebco_bath.lat.data)
-
-    grid_shape = Lon2d.shape
-    print(Lon2d.shape)
-    # print(Lon)
-    # print(Lat)
-
-    # Find limits for range of standard level observations
-    lon_min, lon_max, lat_min, lat_max = [np.nanmin(lon_obs), np.nanmax(lon_obs),
-                                          np.nanmin(lat_obs), np.nanmax(lat_obs)]
-
-    # -1 to convert elevation above sea level to depth below sea level
-    # Subset out obviously out lat/lon
-    mask = (-gebco_bath.elevation.data >= standard_depth) & (Lon2d >= lon_min - radius_deg) & \
-           (Lon2d <= lon_max + radius_deg) & (Lat2d >= lat_min - radius_deg) & \
-           (Lat2d <= lat_max + radius_deg)
-
-    # mask_v2 = np.zeros(mask.shape, dtype='int')
-    # mask_v2[mask] = 1
-    #
-    # print(len(mask_v2[mask_v2 == 1]), len(mask_v2[mask_v2 == 0]))
-
-    print('Recalculating mask...')
-
-    # Flatten the boolean mask
-    mask_flat = mask.flatten()
-    mask_v2_flat = np.zeros(len(mask_flat), dtype=int)
-    mask_v2_flat[mask_flat] = 1
-
-    for i in trange(len(vobs)):
-        # Create tuple of the lon/lat of each standard level observation point
-        obs_loc = (lon_obs[i], lat_obs[i])
-
-        # print(i, 'Creating dist_arr...')
-        dist_arr = np.repeat(np.nan, len(Lon2d.flatten()))
-        dist_arr[mask_flat] = np.array(list(map(
-            lambda x, y: hs.haversine(obs_loc, (x, y)), Lon2d[mask], Lat2d[mask])))
-        # print(i, 'Dist time: %s seconds' % (time.time() - start_dist))
-
-        mask_v2_flat[dist_arr < search_radius] = 2
-
-    # Reshape flattened mask back to 2d
-    mask_v2 = mask_v2_flat.reshape(grid_shape)
-    mask_v3 = np.repeat(False, mask_v2_flat.shape).reshape(grid_shape)
-    mask_v3[mask_v2 == 2] = True
-
-    return Lon2d, Lat2d, mask_v3
-
-
-# Compute subsetter mask if not already exists
-# Lon, Lat, bool_mask = update_gebco_bath(xobs, yobs, radius_km)
+# -------------------------Get GEBCO bathymetry-----------------------------------------
 
 # GEBCO 6 minute mask
 mask_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
@@ -283,7 +219,9 @@ def run_cv(subsamp_interval, mask, lon1d, lat1d, lenx_guess, leny_guess, epsilon
 #                                        mask_data.lat.data, lenx, leny, epsilon2, nl_cv,
 #                                        ne_cv, method_cv)
 
-lenx_cv, leny_cv, epsilon2_cv = [500e3, 500e3, 1/50.]
+# lenx_cv, leny_cv, epsilon2_cv = [500e3, 500e3, 1/50.]
+
+lenx_cv, leny_cv, epsilon2_cv = [lenxy_oxy, lenxy_oxy, 1/50.]  # From fithorzlen()
 
 # nl=ne=1, Oxy 0m 2010 OND
 # lenx_cv, leny_cv, epsilon2_cv = [1377114.3516690833, 1377114.3516690833, 0.06600873717044665]
@@ -365,7 +303,7 @@ plt.savefig(plt_filename, dpi=400)
 
 plt.close()
 
-# ---------------Export the results as a netCDF file-------------------------
+# --------------------------Export the results as a netCDF file---------------------------
 
 # Create Dataset object
 ncout = xr.Dataset(coords={'Latitude': Lat[:, 0], 'Longitude': Lon[0, :]},
@@ -373,7 +311,7 @@ ncout = xr.Dataset(coords={'Latitude': Lat[:, 0], 'Longitude': Lon[0, :]},
 #                  data_vars={'analysis': (('Latitude', 'Longitude'), va),
 #                             'pre_analysis_obs_mean': ((), vmean)})
 
-ncout_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_gebco_nle{}.nc".format(
+ncout_filename = os.path.join(plt_dir + "{}_{}m_{}_{}_analysis2d_gebco.nc".format(
     var_name, standard_depth, year, szn, nl_cv))
 
 ncout.to_netcdf(ncout_filename)
