@@ -45,7 +45,7 @@ var_cmap = 'Blues'  # matplotlib colormap to use for plotting the DIVAnd field
 mask_subsamp_int = 10
 
 # Set lenxy from DIVAnd fithorzlen()
-lenxy_oxy = 500e3  # 2.56  # 1.55
+lenxy_oxy = 2.56 # 500e3  # 2.56  # 1.55
 # -------------------------------------------------------------------------------------------
 
 # Get standard levels file

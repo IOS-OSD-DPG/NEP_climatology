@@ -5,7 +5,7 @@ import pandas as pd
 from tqdm import trange
 # import time
 # import haversine as hs
-from clim_helpers import deg2km
+from clim_helpers import deg2km, get_standard_levels
 # from numba import jit
 import dask
 
@@ -159,9 +159,12 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
 
 # -----------------------------Choose data file----------------------------------
 var_name = 'Oxy'
-years = np.arange(1991, 2021)  # [1995, 2005]
-szns = ['JFM', 'AMJ', 'JAS', 'OND']
-standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
+years = [1991] # np.arange(1991, 2021)  # [1995, 2005]
+szns = ['JFM']  # ['JFM', 'AMJ', 'JAS', 'OND']
+# standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
+# standard_depths = [0]
+standard_depths = get_standard_levels(
+    'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\WOA_Standard_Depths.txt')
 radius_deg = 2  # search radius
 radius_km = deg2km(radius_deg)  # degrees length
 
@@ -172,7 +175,7 @@ obs_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_dept
 # Directory for netCDF boolean masks to be output into
 out_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
           '16_diva_analysis\\masks\\'
-# -------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------
 
 # Use GEBCO 2021 6'x6' bathymetry file to create masks by depth
 

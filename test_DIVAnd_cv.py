@@ -4,6 +4,7 @@ import numpy as np
 import os
 from xarray import open_dataset
 import time
+import glob
 import DIVAnd
 
 
@@ -15,14 +16,38 @@ var_name = 'Oxy'
 # standard_depth = 10
 # year = 2010
 # szn = 'OND'
-subsamp_interval_list = [50, 40, 30, 20, 10, 5]  # 3 or 5 is minimum possible
+# subsamp_interval_list = [50, 40, 30, 20, 10, 5]  # 3 or 5 is minimum possible
+
+subsamp_interval_list = [10]
 
 # files = [(10, 2013, 'JAS'), (5200, 1993, 'OND'), (20, 1991, 'AMJ')]
 # files = [(0, 1991, 'JFM'), (0, 1991, 'AMJ'), (0, 1991, 'JAS'), (0, 1991, 'OND'),
+#          (0, 1992, 'JFM'), (0, 1992, 'AMJ'), (0, 1992, 'JAS'), (0, 1992, 'OND'),
 #          (0, 2000, 'JFM'), (0, 2000, 'AMJ'), (0, 2000, 'JAS'), (0, 2000, 'OND'),
+#          (1500, 2010, 'JFM'), (1500, 2010, 'AMJ'), (1500, 2010, 'JAS'), (1500, 2010, 'OND'),
+#          (1750, 2010, 'JFM'), (1750, 2010, 'AMJ'), (1750, 2010, 'JAS'), (1750, 2010, 'OND'),
+#          (2000, 2010, 'JFM'), (2000, 2010, 'AMJ'), (2000, 2010, 'JAS'), (2000, 2010, 'OND'),
+#          (5000, 2015, 'AMJ'), (5000, 2007, 'JAS'), (5000, 2006, 'JFM'), (5000, 2001, 'JAS'),
 #          (50, 1995, 'JFM'), (50, 1995, 'AMJ'), (50, 1995, 'JAS'), (50, 1995, 'OND')]
 
-files = [(5, 2016, 'AMJ')]
+# (5, 2016, 'AMJ')
+# files = [(0, 1991, 'JFM'), (0, 2000, 'AMJ'), (0, 1993, 'JAS'), (0, 2010, 'OND')]
+
+year = 1991
+szn = 'JFM'
+
+obs_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
+          '14_sep_by_sl_and_year\\'
+
+# files = glob.glob(obs_dir + 'Oxy_*_{}_{}.csv'.format(year, szn))
+# files.sort()
+#
+# # Index out files with depth > 100m
+# for f in files:
+#     print(os.path.basename(f))
+#
+# print(files[10])
+# files = files[:20]
 
 # GEBCO 6 minute mask
 mask_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
@@ -34,18 +59,20 @@ output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\diva_explore\\' 
 # --------------------------------------------------------------------------------
 
 # Iterate through file list
-for f in files:
-    standard_depth = f[0]
-    year = f[1]
-    szn = f[2]
+# for f in files:
+for standard_depth in np.arange(0, 105, 5):
+    # standard_depth = f[0]
+    # year = f[1]
+    # szn = f[2]
+    # standard_depth = os.path.basename(f)[4:8]
+    # year = os.path.basename(f)[10:14]
+    # szn = os.path.basename(f)[15:18]
 
     # Initialize object to store new parameter estimates in
     corlen_list = []
     epsilon2_list = []
 
     # Read in standard level data file
-    obs_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
-              '14_sep_by_sl_and_year\\'
     obs_filename = os.path.join(obs_dir + '{}_{}m_{}_{}.csv'.format(
         var_name, standard_depth, year, szn))
 
@@ -125,7 +152,7 @@ for f in files:
         # #
         # # print(len(mask_v2[mask_v2 == 1]), len(mask_v2[mask_v2 == 0]))
 
-        # --------------------Calculate input parameters-----------------------
+        # ----------------------------Calculate input parameters----------------------------
 
         # Scale factor of the grid
         pm, pn = DIVAnd.metric(Lon, Lat)
@@ -192,11 +219,16 @@ for f in files:
         epsilon2_list.append(epsilon2 * bestfactore)
 
     # Make lists into a dataframe?
+    # param_df = pd.DataFrame(
+    #     data=np.array([subsamp_interval_list, corlen_list, epsilon2_list]).transpose(),
+    #     columns=['interval_size', 'lenx', 'epsilon2'])
     param_df = pd.DataFrame(
-        data=np.array([subsamp_interval_list, corlen_list, epsilon2_list]).transpose(),
+        data=np.array([np.arange(0, 105, 5), corlen_list, epsilon2_list]).transpose(),
         columns=['interval_size', 'lenx', 'epsilon2'])
 
-    param_df_filename = os.path.join(output_dir + 'cv_{}_{}m_{}_{}_nle_{}.csv'.format(
-        var_name, standard_depth, year, szn, nl))
+    # param_df_filename = os.path.join(output_dir + 'cv_{}_{}m_{}_{}_nle_{}.csv'.format(
+    #     var_name, standard_depth, year, szn, nl))
+    param_df_filename = os.path.join(output_dir + 'cv_{}_to_100m_{}_{}_interval_{}.csv'.format(
+        var_name, standard_depth, year, szn, subsamp_interval_list[0]))
 
     param_df.to_csv(param_df_filename, index=False)
