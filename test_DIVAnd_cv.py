@@ -4,7 +4,7 @@ import numpy as np
 import os
 from xarray import open_dataset
 import time
-import glob
+# import glob
 import DIVAnd
 
 
@@ -16,6 +16,8 @@ var_name = 'Oxy'
 # standard_depth = 10
 # year = 2010
 # szn = 'OND'
+year = 1991
+szn = 'JFM'
 # subsamp_interval_list = [50, 40, 30, 20, 10, 5]  # 3 or 5 is minimum possible
 
 subsamp_interval_list = [10]
@@ -32,9 +34,6 @@ subsamp_interval_list = [10]
 
 # (5, 2016, 'AMJ')
 # files = [(0, 1991, 'JFM'), (0, 2000, 'AMJ'), (0, 1993, 'JAS'), (0, 2010, 'OND')]
-
-year = 1991
-szn = 'JFM'
 
 obs_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
           '14_sep_by_sl_and_year\\'
@@ -224,7 +223,7 @@ for standard_depth in np.arange(0, 105, 5):
     #     columns=['interval_size', 'lenx', 'epsilon2'])
     param_df = pd.DataFrame(
         data=np.array([np.arange(0, 105, 5), corlen_list, epsilon2_list]).transpose(),
-        columns=['interval_size', 'lenx', 'epsilon2'])
+        columns=['standard_depth', 'lenx', 'epsilon2'])
 
     # param_df_filename = os.path.join(output_dir + 'cv_{}_{}m_{}_{}_nle_{}.csv'.format(
     #     var_name, standard_depth, year, szn, nl))

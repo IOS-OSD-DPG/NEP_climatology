@@ -159,8 +159,8 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
 
 # -----------------------------Choose data file----------------------------------
 var_name = 'Oxy'
-years = [1991] # np.arange(1991, 2021)  # [1995, 2005]
-szns = ['JFM']  # ['JFM', 'AMJ', 'JAS', 'OND']
+years = np.arange(1991, 2021)  # [1995, 2005]
+szns = ['JFM', 'AMJ', 'JAS', 'OND']
 # standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
 # standard_depths = [0]
 standard_depths = get_standard_levels(
