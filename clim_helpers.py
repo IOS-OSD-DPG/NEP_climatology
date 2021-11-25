@@ -6,6 +6,8 @@ import pandas as pd
 from xarray import open_dataset
 import csv
 import numpy as np
+import matplotlib.pyplot as plt
+import os
 
 
 def concat_vvd_files(flist, outdir, dfname):
@@ -87,3 +89,25 @@ def deg2km(dlat):
     R = 6371.009
 
     return dlat * (2 * np.pi * R) / 360
+
+
+def plot_divand_analysis(output_dir, lon2d, lat2d, var_field, var_cmap, var_name, var_units,
+                         lon_obs, lat_obs, depth, yr, szn, nle_val):
+    plt.pcolormesh(lon2d, lat2d, var_field, shading='auto', cmap=var_cmap)  # , vmin=150, vmax=400)
+    plt.colorbar(label='{} [{}]'.format(var_name, var_units))  # ticks=range(150, 400 + 1, 50)
+
+    # Scatter plot the observation points
+    plt.scatter(lon_obs, lat_obs, c='k', s=0.1)
+    plt.title('nl = ne = {}'.format(nle_val))
+
+    # Set limits
+    plt.xlim((-160., -102.))
+    plt.ylim((25., 62.))
+
+    plt_filename = os.path.join(output_dir + "{}_{}m_{}_{}_analysis2d_gebco_nle{}.png".format(
+        var_name, depth, yr, szn, nle_val))
+    plt.savefig(plt_filename, dpi=400)
+
+    plt.close()
+    return
+
