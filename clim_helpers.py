@@ -11,6 +11,7 @@ import os
 
 
 def concat_vvd_files(flist, outdir, dfname):
+    # Concatenate value vs depth csv files and retain unique profile numbers for each profile
     df_all = pd.DataFrame()
 
     profile_counter = 0
@@ -34,8 +35,9 @@ def concat_vvd_files(flist, outdir, dfname):
 
 
 def date_string_to_datetime(df):
+    # Add a column containing the date string in pandas datetime format
+    # Return the updated dataframe
     # df MUST CONTAIN COLUMN TITLED "Date_string"
-    # Create a new column for Date_string in pandas datetime format
     df.insert(len(df.columns), 'Time_pd',
               pd.to_datetime(df.Date_string, format='%Y%m%d%H%M%S'))
 
@@ -50,12 +52,15 @@ def open_by_source(full_path):
         data = open_dataset(full_path)
     elif full_path.endswith('.csv'):
         data = pd.read_csv(full_path)
+    else:
+        print("Warning: data of incorrect format; must be .csv or .nc")
+        return None
     return data
 
 
 def vvd_apply_value_flag(df, flag_name):
     # Apply flag and generate new copy of df
-    # Flag=0 means data passed the check so want to keep that
+    # Flag=0 means data passed the check so want to keep those data
 
     df = df.loc[df[flag_name] == 0]
 
@@ -66,6 +71,8 @@ def vvd_apply_value_flag(df, flag_name):
 
 def get_standard_levels(fpath_sl):
     # Return array of standard levels from the standard levels text file
+    # fpath_sl is the full file path of the standard levels txt file
+    # which contains 102 standard levels between 0m depth and 5500m depth
 
     # Initialize list with each element being a row in file_sl
     sl_list = []
@@ -85,6 +92,7 @@ def get_standard_levels(fpath_sl):
 
 def deg2km(dlat):
     # From DIVAnd.jl
+    # Convert decimal degrees distance into km distance
     # Mean radius (http://en.wikipedia.org/wiki/Earth_radius) in km
     R = 6371.009
 
@@ -93,6 +101,23 @@ def deg2km(dlat):
 
 def plot_divand_analysis(output_dir, lon2d, lat2d, var_field, var_cmap, var_name, var_units,
                          lon_obs, lat_obs, depth, yr, szn, nle_val):
+    """
+    Plot the output field from DIVAnd interpolation
+    :param output_dir: output directory path
+    :param lon2d: 2d mesh grid of longitude values with shape (m, n)
+    :param lat2d: 2d mesh grid of latitude values with shape (m, n)
+    :param var_field: 2d field of interpolated observations with shape (m, n)
+    :param var_cmap: colormap for the plot; use "Blues" for Oxygen and salinity
+    :param var_name: "Oxy", "Temp" or "Sal"
+    :param var_units: string specifing the variable units
+    :param lon_obs: 1d array of longitude of standard level observations
+    :param lat_obs: 1d array of latitude of standard level observations
+    :param depth: depth of var_field; int type
+    :param yr: year; int type
+    :param szn: season, one of "JFM", "AMJ", "JAS", or "OND"
+    :param nle_val: value used for nl and ne in the DIVAnd cross-validation
+    :return:
+    """
     plt.pcolormesh(lon2d, lat2d, var_field, shading='auto', cmap=var_cmap)  # , vmin=150, vmax=400)
     plt.colorbar(label='{} [{}]'.format(var_name, var_units))  # ticks=range(150, 400 + 1, 50)
 
@@ -109,5 +134,5 @@ def plot_divand_analysis(output_dir, lon2d, lat2d, var_field, var_cmap, var_name
     plt.savefig(plt_filename, dpi=400)
 
     plt.close()
-    return
 
+    return plt_filename
