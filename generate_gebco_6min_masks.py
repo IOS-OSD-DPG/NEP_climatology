@@ -93,8 +93,6 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
     # Mask out land area of gebco bathymetry
     # Use dask to improve execution speed...
 
-    # sldata = pd.read_csv(obs_filename)
-
     # Find limits for range of standard level observations
     lon_min, lon_max, lat_min, lat_max = [np.min(lon_obs), np.max(lon_obs),
                                           np.min(lat_obs), np.max(lat_obs)]
@@ -113,33 +111,26 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
     Lon2d_flat = Lon2d.flatten()
     Lat2d_flat = Lat2d.flatten()
 
-    # start_time = time.time()
     for i in trange(len(lon_obs)):
         # Create tuple of the lon/lat of each standard level observation point
         obs_loc = (lon_obs[i], lat_obs[i])
 
-        # start_time = time.time()
-        # dist_arr = dask.delayed(
-        #     lambda x, y: haversine(obs_loc, (x, y)))(Lon2d_flat[mask_v2_flat == 1],
-        #                                              Lat2d_flat[mask_v2_flat == 1])
+        # Compute haversine distance between the observation point and each
+        # point in the mask coordinates
+        # Dask delays the computation of the haversine distance
         dist_arr = dask.delayed(
             lambda x, y: haversine(obs_loc, (x, y)))(Lon2d_flat, Lat2d_flat)
 
         # Returns a tuple; index its first element which is the result
         Dist_arr = dask.compute(dist_arr)[0]
         # print(len(Dist_arr))
-        # print(len(np.where(Dist_arr < radius_km)[0]))
 
-        # broadcaster = np.where(mask_v2_flat == 1)[0]
-        # mask_v2_flat[mask_v2_flat == 1][Dist_arr < radius_km] = 2
+        # If distance less than search radius
         mask_v2_flat[Dist_arr < radius_km] = 2
-
-        # print(mask_v2_flat[mask_v2_flat == 1][Dist_arr < radius_km])
-        # print(np.where(mask_v2_flat == 2)[0])
-        # print(i, 'Execution time: %s s' % (time.time() - start_time))
 
     # Reshape flattened mask back to 2d
     mask_v2 = mask_v2_flat.reshape(Lon.shape)
+    # Create final version of boolean mask
     mask_v3 = np.repeat(False, mask_v2_flat.shape).reshape(Lon.shape)
     mask_v3[mask_v2 == 2] = True
 
@@ -152,7 +143,7 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
 
     ncout.to_netcdf(ncout_filename)
 
-    ncout.close()
+    ncout.close()  # Close the dataset
 
     return ncout_filename
 
@@ -161,10 +152,13 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
 var_name = 'Oxy'
 years = np.arange(1991, 2021)  # [1995, 2005]
 szns = ['JFM', 'AMJ', 'JAS', 'OND']
+
 # standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
 # standard_depths = [0]
+# Already made all 0m and 5m masks so skip to 10m
 standard_depths = get_standard_levels(
-    'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\WOA_Standard_Depths.txt')
+    'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\WOA_Standard_Depths.txt')[2:]
+
 radius_deg = 2  # search radius
 radius_km = deg2km(radius_deg)  # degrees length
 
@@ -187,17 +181,13 @@ gebco_filename = os.path.join(gebco_dir + 'gebco_2021_n60_s30_w-160_e-115.nc')
 
 gebco_data = xr.open_dataset(gebco_filename)
 
-# print(np.diff(gebco_bath.lat.data))
-
 # Create 2d grid of lat and lon
 Lon, Lat = np.meshgrid(gebco_data.lon.data, gebco_data.lat.data)
-# print(Lon.shape)
-# print(Lon)
-# print(Lat)
 
 # Iterate through all requested files
 for dep in standard_depths:
-    print('Depth: {}m'.format(dep))
+    print()
+    print('--------------------Depth: {}m--------------------'.format(dep))
     for yr in years:
         print(yr)
         for szn in szns:
@@ -212,6 +202,7 @@ for dep in standard_depths:
             obs_filename = os.path.join(obs_dir + '{}_{}m_{}_{}.csv'.format(
                 var_name, dep, yr, szn))
 
+            # Read into pandas dataframe
             sldata = pd.read_csv(obs_filename)
 
             if sldata.empty:
@@ -222,11 +213,8 @@ for dep in standard_depths:
                                                 np.array(sldata['Latitude']),
                                                 gebco_data.elevation.data, Lon, Lat,
                                                 dep, yr, szn, out_dir)
-            # mask_out = generate_gebco_mask(np.array(sldata['Longitude']),
-            #                                np.array(sldata['Latitude']),
-            #                                gebco_data.elevation.data, Lon, Lat)
 
-# ----------------------------------------------------------------------
+# ----------------------------------------------------------------------------------
 # # RAM calculations
 # # https://blogs.sas.com/content/iml/2014/04/28/how-much-ram-do-i-need-to-store-that-matrix.html
 # r = Lon.shape[0]
