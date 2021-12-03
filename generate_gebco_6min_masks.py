@@ -125,8 +125,8 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
         Dist_arr = dask.compute(dist_arr)[0]
         # print(len(Dist_arr))
 
-        # If distance less than search radius
-        mask_v2_flat[Dist_arr < radius_km] = 2
+        # If distance less than search radius and point is not land
+        mask_v2_flat[(mask_v2_flat == 1) & (Dist_arr < radius_km)] = 2
 
     # Reshape flattened mask back to 2d
     mask_v2 = mask_v2_flat.reshape(Lon.shape)
@@ -154,10 +154,10 @@ years = np.arange(1991, 2021)  # [1995, 2005]
 szns = ['JFM', 'AMJ', 'JAS', 'OND']
 
 # standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
-# standard_depths = [0]
+standard_depths = [5]
 # Already made all 0m and 5m masks so skip to 10m
-standard_depths = get_standard_levels(
-    'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\WOA_Standard_Depths.txt')[2:]
+# standard_depths = get_standard_levels(
+#     'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\WOA_Standard_Depths.txt')[2:]
 
 radius_deg = 2  # search radius
 radius_km = deg2km(radius_deg)  # degrees length

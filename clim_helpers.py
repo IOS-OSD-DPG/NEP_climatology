@@ -100,7 +100,7 @@ def deg2km(dlat):
 
 
 def plot_divand_analysis(output_dir, lon2d, lat2d, var_field, var_cmap, var_name, var_units,
-                         lon_obs, lat_obs, depth, yr, szn, nle_val):
+                         lon_obs, lat_obs, depth, yr, szn, corlen_method):
     """
     Plot the output field from DIVAnd interpolation
     :param output_dir: output directory path
@@ -115,24 +115,34 @@ def plot_divand_analysis(output_dir, lon2d, lat2d, var_field, var_cmap, var_name
     :param depth: depth of var_field; int type
     :param yr: year; int type
     :param szn: season, one of "JFM", "AMJ", "JAS", or "OND"
-    :param nle_val: value used for nl and ne in the DIVAnd cross-validation
+    :param corlen_method: method used to estimate the correlation length;
+    "fithorzlen" or "GCV" (generalized cross-validation)
     :return:
     """
     plt.pcolormesh(lon2d, lat2d, var_field, shading='auto', cmap=var_cmap)  # , vmin=150, vmax=400)
-    plt.colorbar(label='{} [{}]'.format(var_name, var_units))  # ticks=range(150, 400 + 1, 50)
+    plt.colorbar(label='{} [{}]'.format(var_name, var_units))  # ticks=np.arange(150, 400 + 1, 50)
 
     # Scatter plot the observation points
     plt.scatter(lon_obs, lat_obs, c='k', s=0.1)
-    plt.title('nl = ne = {}'.format(nle_val))
+    plt.title('{} {}m {} {}: lenxy from {}'.format(var_name, depth, yr, szn, corlen_method))
 
     # Set limits
     plt.xlim((-160., -102.))
     plt.ylim((25., 62.))
 
-    plt_filename = os.path.join(output_dir + "{}_{}m_{}_{}_analysis2d_gebco_nle{}.png".format(
-        var_name, depth, yr, szn, nle_val))
+    plt_filename = os.path.join(output_dir + "{}_{}m_{}_{}_analysis2d_gebco.png".format(
+        var_name, depth, yr, szn))
     plt.savefig(plt_filename, dpi=400)
 
     plt.close()
 
     return plt_filename
+
+
+def szn_str2int(szn_string):
+    szns = np.array(["JFM", "AMJ", "JAS", "OND"])
+    if szn_string in szns:
+        return np.where(szns == szn_string)[0][0] + 1
+    else:
+        print("Warning: Season {} not in {}".format(szn_string, szns))
+        return None
