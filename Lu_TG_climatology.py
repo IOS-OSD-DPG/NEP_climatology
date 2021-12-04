@@ -16,10 +16,10 @@ from itertools import islice
 from mpl_toolkits.basemap import Basemap
 import fiona
 import rasterio.mask
-# import rasterio
-# import pyproj
-# from rasterio.transform import Affine
 from clim_helpers import szn_str2int
+import rasterio
+# import pyproj
+from rasterio.transform import Affine
 
 
 # -----------------------------Read and reformat climatology data -------------------------
@@ -234,7 +234,8 @@ def plot_clim_triangle_v2(tri_dir, clim_data_file, left_lon, right_lon, bot_lat,
     m.fillcontinents(color='0.8')
 
     cax = plt.tripcolor(xpt, ypt, triangles, var_data, cmap=var_cmap, edgecolors='none',
-                        vmin=np.nanmin(var_data), vmax=np.nanmax(var_data))
+                        vmin=230, vmax=330)
+                        # vmin=np.nanmin(var_data), vmax=np.nanmax(var_data))
 
     # set the nan to white on the map
     # color_map = plt.cm.get_cmap()
@@ -249,6 +250,8 @@ def plot_clim_triangle_v2(tri_dir, clim_data_file, left_lon, right_lon, bot_lat,
     m.drawparallels(parallels, labels=[True, False, False, False])  # draw parallel lat lines
     meridians = np.arange(left_lon, -100.0, 15.)  # meridians = np.linspace(int(left_lon), right_lon, 5)
     m.drawmeridians(meridians, labels=[False, False, True, True])
+
+    plt.title("Season: {}".format(season))
 
     png_filename = output_dir + "{}_{}m_{}_TG_mean_est.png".format(var_name, depth, season)
     fig.savefig(png_filename, dpi=400)
@@ -346,12 +349,11 @@ def triangle_to_regular(data_dict, file_path, left_lon, right_lon, bot_lat, top_
     return data_dict_new
 
 
+def triangle_to_regular_v2(tri_dir, clim_data_file, output_dir, var_name, depth, season):
+    return
+
 # -----------------------------------------------------------------------------------------------------------------------
 # Write interpolated data into geoTiff file
-import rasterio
-# import pyproj
-from rasterio.transform import Affine
-
 
 # latlon = '+proj=longlat +datum=WGS84'
 # proj_basemap = pyproj.Proj(m.proj4string) # find out the basemap projection
@@ -389,6 +391,73 @@ def convert_to_tif(data_dict, file_path, output_folder, season, depth):
     return
 
 
+def convert_to_tif_v2(tri_dir, clim_data_file, output_dir, var_name, depth, season):
+    """
+    Convert txt to tif
+    :param tri_dir:
+    :param clim_data_file:
+    :param output_dir:
+    :param var_name:
+    :param depth:
+    :param season:
+    :return:
+    """
+    grid_fullpath = os.path.join(tri_dir, 'nep35_reord_latlon_wgeo.ngh')
+    # tri_fullpath = os.path.join(tri_dir, 'nep35_reord.tri')
+
+    # Read in grid data
+    grid_ds = np.genfromtxt(grid_fullpath, dtype="i8,f8,f8, i4, f8, i4, i4, i4, i4, i4, i4, i4",
+                            names=['node', 'lon', 'lat', 'type', 'depth',
+                                   's1', 's2', 's3', 's4', 's5', 's6'],
+                            delimiter="", skip_header=3)
+
+    # # Read in triangle data
+    # tri_ds = np.genfromtxt(
+    #     tri_fullpath, skip_header=0, skip_footer=0, usecols=(1, 2, 3)) - 1
+    #
+    # tri = mtri.Triangulation(grid_ds['lon'], grid_ds['lat'],
+    #                          tri_ds)  # attributes: .mask, .triangles, .edges, .neighbors
+
+    # Open the climatology data file (Oxygen, Temperature or Salinity)
+    clim_df = pd.read_csv(clim_data_file, sep="\t")
+    var_r = np.array(clim_df["SL_value_30yr_avg @ Season={}.00".format(szn_str2int(season))])
+
+    x_lon_r = grid_ds['lon']
+    y_lat_r = grid_ds['lat']
+
+    # res = (x_lon_r[0][-1] - x_lon_r[0][0]) / 5400
+    res = (x_lon_r[-1] - x_lon_r[0]) / 5400
+    # Affine.translation(xoff, yoff)
+    # Affine.scale(scaling) -- Create a scaling transform from a scalar or vector
+    # transform = Affine.translation(
+    #     x_lon_r[0][0] - res / 2, y_lat_r[0][0] - res / 2) * Affine.scale(res, res)
+    transform = Affine.translation(
+        x_lon_r[0] - res / 2, y_lat_r[0] - res / 2) * Affine.scale(res, res)
+
+    tif_name = os.path.join(output_dir + "{}_{}m_{}_mean_est.tif".format(
+        var_name, depth, season))
+
+    raster_output = rasterio.open(
+        tif_name,
+        'w',
+        driver='GTiff',
+        height=var_r.shape[0],
+        width=var_r.shape[1],
+        count=1,
+        dtype=var_r.dtype,
+        crs='+proj=longlat +datum=WGS84',
+        # crs='epsg:4269', #epsg:4326, 4269, 3005 crs='+proj=latlong', #epsg:4326, Proj4js.defs["EPSG:4326"] = "+proj=longlat +ellps=GRS80 +datum=NAD83 +no_defs"
+        # crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +datum=NAD83 +units=m +no_defs',
+        transform=transform,
+        nodata=0
+    )
+
+    # raster_output.write(var_r.data, 1)
+    raster_output.write(var_r, 1)
+    raster_output.close()
+    return tif_name
+
+
 # ------------------------- fit into EEZ polygon shapefile------------------------
 
 def EEZ_clip(file_path, output_folder, season, depth):
@@ -415,20 +484,9 @@ def EEZ_clip(file_path, output_folder, season, depth):
 EEZ_clip(file_path='/home/guanl/Desktop/MSP/Climatology', output_folder='T_sum',
          season='sum', depth='0')
 
-# -----------------------------set file paths-------------------------------------------
 
-# file_path = '/home/guanl/Desktop/MSP/Climatology'
-trigrid_path = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\MForeman\\"
-clim_data_path = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\" \
-                 "ODV_outputs\\0m\\"
-# output_path = '/home/guanl/Desktop/MSP/Climatology/'
-output_path = clim_data_path
-grd_file = os.path.join(trigrid_path, 'nep35_reord_latlon_wgeo.ngh')
-tri_file = os.path.join(trigrid_path, 'nep35_reord.tri')
-# tem_file = os.path.join(file_path, 'nep35_tem_' + season + '_extrap2.dat')
-# tem_reformat = os.path.join(file_path, 'nep35_tem_' + season + '_extrap2_reformat')
-
-# ------------------------------run functions-------------------------------------------
+# --------------------------------------------------------------------------------
+# ----------------------------Set parameters--------------------------------------
 
 # Specify index
 variable_name = "Oxy"
@@ -440,26 +498,50 @@ standard_depth = '0'
 # output_folder = 'T_spr'
 # output_folder = "{}m".format(standard_depth)
 
-for sa in season_abbrevs:
+# -----------------------------set file paths-------------------------------------------
+
+# file_path = '/home/guanl/Desktop/MSP/Climatology'
+trigrid_path = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\MForeman\\"
+clim_data_path = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\" \
+                 "ODV_outputs\\{}m\\".format(standard_depth)
+# output_path = '/home/guanl/Desktop/MSP/Climatology/'
+output_path = clim_data_path
+grd_file = os.path.join(trigrid_path, 'nep35_reord_latlon_wgeo.ngh')
+tri_file = os.path.join(trigrid_path, 'nep35_reord.tri')
+# tem_file = os.path.join(file_path, 'nep35_tem_' + season + '_extrap2.dat')
+# tem_reformat = os.path.join(file_path, 'nep35_tem_' + season + '_extrap2_reformat')
+
+# ------------------------------run functions-------------------------------------------
+
+for sa in season_abbrevs[:]:
     print(sa)
     clim_data_filename = os.path.join(clim_data_path + "{}_{}m_{}_TG_mean_est.txt".format(
-        variable_name, standard_depth, season_abbrev))
+        variable_name, standard_depth, sa))
 
-    # Plot the climatology for the selected variable
-    plot_clim_triangle_v2(
-        trigrid_path, clim_data_filename, left_lon=-160, right_lon=-102, bot_lat=25,
-        top_lat=62, output_dir=output_path, var_name=variable_name,
-        var_units=variable_units, var_cmap=var_colourmap, season=season_abbrev,
-        depth=standard_depth)
+    # # Plot the climatology for the selected variable
+    # plot_clim_triangle_v2(
+    #     trigrid_path, clim_data_filename, left_lon=-160, right_lon=-102, bot_lat=25,
+    #     top_lat=62, output_dir=output_path, var_name=variable_name,
+    #     var_units=variable_units, var_cmap=var_colourmap, season=sa,
+    #     depth=standard_depth)
 
+    # Must convert triangle to regular before converting to tif
+    clim_data_r = triangle_to_regular_v2()
 
-# -------------See what this .npy file is like
+    # Convert txt file to tif file
+    convert_to_tif_v2(trigrid_path, clim_data_filename, output_path,
+                      var_name=variable_name, depth=standard_depth, season=sa)
+
+# ---------------------------------------------------------------------------
+# ------------------------See what this .npy file is like--------------------
 npy_filename = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\" \
                "nep35_tem_spr_extrap2_reformat.npy"
 npy_data = np.load(npy_filename)
 print(npy_data.shape)
 # Use np.save("filename", data_array) to save data to a .npy file
-# ---------------------------------------------
+# ----------------------------------------------------------------------------
+
+# Lu's code...
 
 # reformat the climatology data to array
 array = reformat_array(trigrid_path, season_abbrev)
