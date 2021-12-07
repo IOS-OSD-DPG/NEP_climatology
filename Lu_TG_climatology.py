@@ -2,7 +2,7 @@
 # clear all
 # os.system("clear")
 
-# -------------------  import packages ----------------------------------------------------------------------------------
+# -------------------  import packages ------------------------------------------------------------
 
 # import sys
 import os
@@ -88,8 +88,8 @@ def read_climatologies(file_path, output_folder, season):
 
     # write index for each grid depth
     for i in range(0, 52, 1):
-        variable_name = 'grid_depth_' + str(int(abs(grid_depth[i]))) + 'm'
-        data_dict[variable_name] = array_t[i]
+        var_name = 'grid_depth_' + str(int(abs(grid_depth[i]))) + 'm'
+        data_dict[var_name] = array_t[i]
 
     tri = mtri.Triangulation(data_dict['x_lon'], data_dict['y_lat'],
                              tri_data)  # attributes: .mask, .triangles, .edges, .neighbors
@@ -99,6 +99,43 @@ def read_climatologies(file_path, output_folder, season):
     data_dict['triangles'] = tri.triangles
     plt.triplot(tri, color='0.7', lw=0.2)  # check grid plot
     plt.show()
+
+    return data_dict
+
+
+def read_climatologies_v2(tri_dir, clim_data_file, season):
+    grid_filename = os.path.join(tri_dir, 'nep35_reord_latlon_wgeo.ngh')
+    tri_filename = os.path.join(tri_dir, 'nep35_reord.tri')
+
+    grid_ds = np.genfromtxt(grid_filename, dtype="i8,f8,f8, i4, f8, i4, i4, i4, i4, i4, i4, i4",
+                            names=['node', 'lon', 'lat', 'type', 'depth',
+                                   's1', 's2', 's3', 's4', 's5', 's6'],
+                            delimiter="", skip_header=3)
+
+    tri_ds = np.genfromtxt(
+        tri_filename, skip_header=0, skip_footer=0, usecols=(1, 2, 3)) - 1  # python starts from 0
+
+    # create a data dictionary, and write data into dictionary
+    data_dict = dict()
+    data_dict['node_number'] = np.array(grid_ds['node']) - 1  # use node_number as Key
+    data_dict['depth_in_m'] = np.array(grid_ds['depth'])
+    data_dict['y_lat'] = np.array(grid_ds['lat'])
+    data_dict['x_lon'] = np.array(grid_ds['lon'])
+    # data_dict['grid_depth'] = abs(array[0])
+
+    tri = mtri.Triangulation(data_dict['x_lon'], data_dict['y_lat'],
+                             tri_ds)  # attributes: .mask, .triangles, .edges, .neighbors
+    data_dict['triangles'] = tri.triangles
+
+    if clim_data_file.endswith('.txt'):
+        clim_df = pd.read_csv(clim_data_file, sep="\t")
+        var_data = np.array(clim_df["SL_value_30yr_avg @ Season={}.00".format(
+            szn_str2int(season))])
+    elif clim_data_file.endswith('.npy'):
+        clim_array = np.load(clim_data_file)
+        var_data = clim_array[1:]
+
+    data_dict['var_data'] = var_data
 
     return data_dict
 
@@ -148,8 +185,8 @@ def plot_clim_triangle(data_dict, file_path, left_lon, right_lon, bot_lat, top_l
     # color_map = plt.cm.get_cmap('Blues_r')
     # color_map_r = color_map.reversed()
     # cax = plt.tripcolor(xpt, ypt, triangles, var, cmap='YlOrBr', edgecolors= 'none')
-    cax = plt.tripcolor(xpt, ypt, triangles, var, cmap='YlOrBr', edgecolors='none', vmin=np.nanmin(var),
-                        vmax=np.nanmax(var))
+    cax = plt.tripcolor(xpt, ypt, triangles, var, cmap='YlOrBr', edgecolors='none',
+                        vmin=np.nanmin(var), vmax=np.nanmax(var))
 
     # cax = plt.tripcolor(xpt, ypt, triangles, -depth, cmap='Blues_r', edgecolors=edge_color, vmin=-5000, vmax=0)
 
@@ -349,8 +386,90 @@ def triangle_to_regular(data_dict, file_path, left_lon, right_lon, bot_lat, top_
     return data_dict_new
 
 
-def triangle_to_regular_v2(tri_dir, clim_data_file, output_dir, var_name, depth, season):
-    return
+def triangle_to_regular_v2(data_dict, tri_dir, output_dir, var_name, depth,
+                           season, left_lon, right_lon, bot_lat, top_lat,
+                           var_units, var_cmap):
+    tri_filename = os.path.join(tri_dir, 'nep35_reord.tri')
+    tri_ds = np.genfromtxt(
+        tri_filename, skip_header=0, skip_footer=0, usecols=(1, 2, 3)) - 1
+
+    # build regular grid mesh and interpolate value on to the regular mesh
+    # xi = np.linspace(221, 239, 5400)  # ~ 333m ~ 0.003 degree
+    # print((239 - 221) / 5400)
+    # yi = np.linspace(46, 55, 2700)  # ~ 333m ~ 0.003 degree
+    xi = np.linspace(200, 245, 13500)  # ~ 333m ~ 0.003 degree
+    yi = np.linspace(30, 60, 9000)  # ~ 333m ~ 0.003 degree
+    x_lon_r, y_lat_r = np.meshgrid(xi, yi)  # create regular grid
+
+    # create basemap
+    m = Basemap(llcrnrlon=left_lon, llcrnrlat=bot_lat,
+                urcrnrlon=right_lon, urcrnrlat=top_lat,
+                projection='lcc',  # width=40000, height=40000, #lambert conformal project
+                resolution='h', lat_0=0.5 * (bot_lat + top_lat),
+                lon_0=0.5 * (left_lon + right_lon))  # lat_0=53.4, lon_0=-129.0)
+
+    xpr, ypr = m(x_lon_r, y_lat_r)  # convert lat/lon to x/y map projection coordinates in meters using basemap
+
+    # get triangular mesh information
+    x_lon = data_dict['x_lon']
+    y_lat = data_dict['y_lat']
+    xpt, ypt = m(x_lon, y_lat)  # convert lat/lon to x/y map projection coordinates in meters
+    tri_pt = mtri.Triangulation(xpt, ypt, tri_ds)
+    # trifinder = tri_pt.get_trifinder()
+    # trifinder= mtri.Triangulation.get_trifinder(tri_pt), return the default of this triangulation
+
+    # var_name = 'grid_depth_' + depth + 'm'
+    # var = np.array(data_dict[var_name])
+
+    var = data_dict["var_data"]
+
+    # interpolate from triangular to regular mesh
+    interp_lin = mtri.LinearTriInterpolator(
+        tri_pt, var, trifinder=None)  # conduct interpolation on lcc projection, not on lat/long
+    var_r = interp_lin(xpr, ypr)
+    var_r[var_r.mask] = np.nan  # set the value of masked point to nan
+
+    # # Create figure MEMORY ERROR
+    # fig = plt.figure(num=None, figsize=(8, 6), dpi=100)
+    # m.drawcoastlines(linewidth=0.2)
+    # # m.drawmapboundary(fill_color='white')
+    # m.fillcontinents(color='0.8')
+    # # m.scatter(xpr, ypr, color='black')
+    # cax = plt.pcolor(xpr, ypr, var_r, cmap=var_cmap, edgecolors='none', shading='auto')
+    # # cax = plt.pcolor(xpt, ypt, var_r, cmap='YlOrBr', edgecolors='none', vmin=np.nanmin(var_r), vmax=np.nanmax(var_r))
+    # # Set colour limits of the image
+    # # plt.clim(0, 22)
+    #
+    # # masked_array = np.ma.array(temp_5, mask=np.isnan(temp_5)) #mask the nan values
+    # color_map = plt.cm.get_cmap().copy()
+    # color_map.set_bad('w')  # set the nan values to white on the plot
+    #
+    # cbar = fig.colorbar(cax, shrink=0.7, extend='both')  # set scale bar
+    # cbar.set_label('{} [{}]'.format(var_name, var_units), size=14)  # scale label
+    # parallels = np.arange(bot_lat - 1, top_lat + 1,
+    #                       3.)  # parallels = np.arange(48., 54, 0.2), parallels = np.linspace(bot_lat, top_lat, 10)
+    # m.drawparallels(parallels, labels=[True, False, False, False])  # draw parallel lat lines
+    # # meridians = np.arange(-140, -120.0, 5.)  # meridians = np.linspace(int(left_lon), right_lon, 5)
+    # meridians = np.arange(left_lon, -100.0, 15.)  # meridians = np.linspace(int(left_lon), right_lon, 5)
+    # m.drawmeridians(meridians, labels=[False, False, True, True])
+    #
+    # # labels = [left,right,top,bottom]
+    # # title_name = "Climatology_T_" + season + "_" + depth + 'm'
+    # # plt.title(title_name, size=15, y=1.08)
+    #
+    # # plt.show()
+    # png_name = os.path.join(output_dir + '{}_{}m_{}_TG_reg.png'.format(var_name, depth, season))
+    # fig.savefig(png_name, dpi=400)
+    # # plt.savefig(png_name, dpi=400)
+    # plt.close(fig)
+
+    # save the lat, lon and var on regular grid
+    data_dict_new = dict()
+    data_dict_new['x_lon_r'] = x_lon_r - 360
+    data_dict_new['y_lat_r'] = y_lat_r
+    data_dict_new[var_name] = var_r
+
+    return data_dict_new
 
 # -----------------------------------------------------------------------------------------------------------------------
 # Write interpolated data into geoTiff file
@@ -391,10 +510,10 @@ def convert_to_tif(data_dict, file_path, output_folder, season, depth):
     return
 
 
-def convert_to_tif_v2(tri_dir, clim_data_file, output_dir, var_name, depth, season):
+def convert_to_tif_v2(data_dict, clim_data_file, output_dir, var_name, depth, season):
     """
     Convert txt to tif
-    :param tri_dir:
+    :param data_dict: dictionary
     :param clim_data_file:
     :param output_dir:
     :param var_name:
@@ -402,14 +521,6 @@ def convert_to_tif_v2(tri_dir, clim_data_file, output_dir, var_name, depth, seas
     :param season:
     :return:
     """
-    grid_fullpath = os.path.join(tri_dir, 'nep35_reord_latlon_wgeo.ngh')
-    # tri_fullpath = os.path.join(tri_dir, 'nep35_reord.tri')
-
-    # Read in grid data
-    grid_ds = np.genfromtxt(grid_fullpath, dtype="i8,f8,f8, i4, f8, i4, i4, i4, i4, i4, i4, i4",
-                            names=['node', 'lon', 'lat', 'type', 'depth',
-                                   's1', 's2', 's3', 's4', 's5', 's6'],
-                            delimiter="", skip_header=3)
 
     # # Read in triangle data
     # tri_ds = np.genfromtxt(
@@ -422,11 +533,11 @@ def convert_to_tif_v2(tri_dir, clim_data_file, output_dir, var_name, depth, seas
     clim_df = pd.read_csv(clim_data_file, sep="\t")
     var_r = np.array(clim_df["SL_value_30yr_avg @ Season={}.00".format(szn_str2int(season))])
 
-    x_lon_r = grid_ds['lon']
-    y_lat_r = grid_ds['lat']
+    x_lon_r = data_dict['x_lon_r']
+    y_lat_r = data_dict['y_lat_r']
 
     # res = (x_lon_r[0][-1] - x_lon_r[0][0]) / 5400
-    res = (x_lon_r[-1] - x_lon_r[0]) / 5400
+    res = (x_lon_r[0][-1] - x_lon_r[0][0]) / 13500
     # Affine.translation(xoff, yoff)
     # Affine.scale(scaling) -- Create a scaling transform from a scalar or vector
     # transform = Affine.translation(
@@ -492,7 +603,7 @@ EEZ_clip(file_path='/home/guanl/Desktop/MSP/Climatology', output_folder='T_sum',
 variable_name = "Oxy"
 variable_units = r"$\mu$" + "mol/kg"
 var_colourmap = "Blues"
-season_abbrev = "JAS"  # ["JFM", "AMJ", "JAS", "OND"] 'spr'
+season_abbrev = "JFM"  # ["JFM", "AMJ", "JAS", "OND"] 'spr'
 season_abbrevs = ["JFM", "AMJ", "JAS", "OND"]
 standard_depth = '0'
 # output_folder = 'T_spr'
@@ -512,6 +623,17 @@ tri_file = os.path.join(trigrid_path, 'nep35_reord.tri')
 # tem_reformat = os.path.join(file_path, 'nep35_tem_' + season + '_extrap2_reformat')
 
 # ------------------------------run functions-------------------------------------------
+
+fname = clim_data_path + "Oxy_{}m_{}_TG_mean_est.txt".format(
+    standard_depth, season_abbrev)
+dat_dict = read_climatologies_v2(trigrid_path, fname, season_abbrev)
+
+left_lon, right_lon, bot_lat, top_lat = [-160, -102, 25, 62]
+
+dat_dict_new = triangle_to_regular_v2(
+    dat_dict, trigrid_path, clim_data_path, "Oxy", standard_depth, season_abbrev,
+    left_lon=-160, right_lon=-102, bot_lat=25, top_lat=62, var_units=variable_units,
+    var_cmap=var_colourmap)
 
 for sa in season_abbrevs[:]:
     print(sa)

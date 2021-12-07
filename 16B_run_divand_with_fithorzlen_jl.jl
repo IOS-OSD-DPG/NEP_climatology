@@ -81,6 +81,15 @@ function run_divand_with_fithorzlen(obs_dir, mask_dir, fitcor_dir, output_dir,
 
     println("Running analysis...")
 
+    # https://docs.julialang.org/en/v1/manual/control-flow/#Exception-Handling
+    # try
+    	# va = DIVAndrunfi(mask, (pm, pn), (Lon2d, Lat2d), (xobs, yobs), vanom,
+                     	 # (fitcor_lenxy, fitcor_lenxy), epsilon2_guess)
+    # catch OutOfMemoryError
+	# println("Out of memory error occurred; try different correlation length estimate")
+	# return nothing
+    # end
+
     va = DIVAndrunfi(mask, (pm, pn), (Lon2d, Lat2d), (xobs, yobs), vanom,
                      (fitcor_lenxy, fitcor_lenxy), epsilon2_guess)
 
@@ -121,8 +130,8 @@ end
 # -----------------------------------------------------------------------------
 
 variable_name = "Oxy"
-standard_depth = 0
-years = [1994]  # collect(1991:1999)  # Creates increasing array
+standard_depth = 5
+years = collect(2008:2020)  # Creates increasing array
 season = "JAS"
 # subsamp_interval = 1
 

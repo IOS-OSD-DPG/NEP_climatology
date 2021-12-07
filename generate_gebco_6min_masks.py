@@ -8,6 +8,8 @@ from tqdm import trange
 from clim_helpers import deg2km, get_standard_levels
 # from numba import jit
 import dask
+import matplotlib.pyplot as plt
+from xarray import open_dataset
 
 
 # @jit(nopython=True)
@@ -99,9 +101,11 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
 
     # -1 to convert elevation above sea level to depth below sea level
     # Subset out obviously out lat/lon
-    mask = (-elevation >= depth) & (Lon2d >= lon_min - radius_deg) & \
-           (Lon2d <= lon_max + radius_deg) & (Lat2d >= lat_min - radius_deg) & \
-           (Lat2d <= lat_max + radius_deg)
+    # mask = (-elevation >= depth) & (Lon2d >= lon_min - radius_deg) & \
+    #        (Lon2d <= lon_max + radius_deg) & (Lat2d >= lat_min - radius_deg) & \
+    #        (Lat2d <= lat_max + radius_deg)
+
+    mask = (-elevation >= depth)
 
     # Flatten the boolean mask
     mask_flat = mask.flatten()
@@ -138,7 +142,7 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
     ncout = xr.Dataset(coords={'lon': Lon2d[0], 'lat': Lat2d[:, 0]},
                        data_vars={'mask': (('lat', 'lon'), mask_v3)})
 
-    ncout_filename = os.path.join(ncout_dir + '{}_{}m_{}_{}_mask_6min.nc'.format(
+    ncout_filename = os.path.join(ncout_dir + '{}_{}m_{}_{}_mask_6min_v2.nc'.format(
         var_name, depth, year, season))
 
     ncout.to_netcdf(ncout_filename)
@@ -148,10 +152,32 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
     return ncout_filename
 
 
+def plot_mask_coverage(mask_filename):
+    # Check that coverage looks right
+    mask_ds = open_dataset(mask_filename)
+
+    lon2d, lat2d = np.meshgrid(mask_ds.lon.data, mask_ds.lat.data)
+
+    var_field = np.zeros(mask_ds.mask.data.shape)
+    var_field[mask_ds.mask.data == True] = 1
+
+    plt.pcolormesh(lon2d, lat2d, var_field, shading='auto', cmap="Blues")
+    plt.xlim((-162., -102.))
+    plt.ylim((25., 62.))
+
+    plt_filename = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\" \
+                   "value_vs_depth\\16_diva_analysis\\masks\\" \
+                   "{}.png".format(os.path.basename(mask_filename)[:-3])
+    plt.savefig(plt_filename, dpi=400)
+    plt.close()
+
+    return plt_filename
+
+
 # -----------------------------Choose data file----------------------------------
 var_name = 'Oxy'
-years = np.arange(1991, 2021)  # [1995, 2005]
-szns = ['JFM', 'AMJ', 'JAS', 'OND']
+years = [1992]  # np.arange(1991, 2021)  # [1995, 2005]
+szns = ['AMJ']  # ['JFM', 'AMJ', 'JAS', 'OND']
 
 # standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
 standard_depths = [5]
@@ -193,7 +219,7 @@ for dep in standard_depths:
         for szn in szns:
             print(szn)
             # Skip making mask if it already exists
-            if os.path.exists(out_dir + '{}_{}m_{}_{}_mask_6min.nc'.format(
+            if os.path.exists(out_dir + '{}_{}m_{}_{}_mask_6min_v2.nc'.format(
                     var_name, dep, yr, szn)):
                 print('Mask already exists for this file -- skipping')
                 continue
