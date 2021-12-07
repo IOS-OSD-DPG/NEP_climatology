@@ -510,11 +510,10 @@ def convert_to_tif(data_dict, file_path, output_folder, season, depth):
     return
 
 
-def convert_to_tif_v2(data_dict, clim_data_file, output_dir, var_name, depth, season):
+def convert_to_tif_v2(data_dict, output_dir, var_name, depth, season):
     """
     Convert txt to tif
     :param data_dict: dictionary
-    :param clim_data_file:
     :param output_dir:
     :param var_name:
     :param depth:
@@ -522,28 +521,16 @@ def convert_to_tif_v2(data_dict, clim_data_file, output_dir, var_name, depth, se
     :return:
     """
 
-    # # Read in triangle data
-    # tri_ds = np.genfromtxt(
-    #     tri_fullpath, skip_header=0, skip_footer=0, usecols=(1, 2, 3)) - 1
-    #
-    # tri = mtri.Triangulation(grid_ds['lon'], grid_ds['lat'],
-    #                          tri_ds)  # attributes: .mask, .triangles, .edges, .neighbors
-
-    # Open the climatology data file (Oxygen, Temperature or Salinity)
-    clim_df = pd.read_csv(clim_data_file, sep="\t")
-    var_r = np.array(clim_df["SL_value_30yr_avg @ Season={}.00".format(szn_str2int(season))])
-
     x_lon_r = data_dict['x_lon_r']
     y_lat_r = data_dict['y_lat_r']
+    var_r = data_dict[var_name]
 
     # res = (x_lon_r[0][-1] - x_lon_r[0][0]) / 5400
     res = (x_lon_r[0][-1] - x_lon_r[0][0]) / 13500
     # Affine.translation(xoff, yoff)
     # Affine.scale(scaling) -- Create a scaling transform from a scalar or vector
-    # transform = Affine.translation(
-    #     x_lon_r[0][0] - res / 2, y_lat_r[0][0] - res / 2) * Affine.scale(res, res)
     transform = Affine.translation(
-        x_lon_r[0] - res / 2, y_lat_r[0] - res / 2) * Affine.scale(res, res)
+        x_lon_r[0][0] - res / 2, y_lat_r[0][0] - res / 2) * Affine.scale(res, res)
 
     tif_name = os.path.join(output_dir + "{}_{}m_{}_mean_est.tif".format(
         var_name, depth, season))
@@ -557,14 +544,11 @@ def convert_to_tif_v2(data_dict, clim_data_file, output_dir, var_name, depth, se
         count=1,
         dtype=var_r.dtype,
         crs='+proj=longlat +datum=WGS84',
-        # crs='epsg:4269', #epsg:4326, 4269, 3005 crs='+proj=latlong', #epsg:4326, Proj4js.defs["EPSG:4326"] = "+proj=longlat +ellps=GRS80 +datum=NAD83 +no_defs"
-        # crs = '+proj=aea +lat_1=50 +lat_2=58.5 +lat_0=45 +lon_0=-126 +x_0=1000000 +y_0=0 +datum=NAD83 +units=m +no_defs',
         transform=transform,
         nodata=0
     )
 
-    # raster_output.write(var_r.data, 1)
-    raster_output.write(var_r, 1)
+    raster_output.write(var_r.data, 1)
     raster_output.close()
     return tif_name
 
@@ -605,7 +589,7 @@ variable_units = r"$\mu$" + "mol/kg"
 var_colourmap = "Blues"
 season_abbrev = "JFM"  # ["JFM", "AMJ", "JAS", "OND"] 'spr'
 season_abbrevs = ["JFM", "AMJ", "JAS", "OND"]
-standard_depth = '0'
+standard_depth = '5'
 # output_folder = 'T_spr'
 # output_folder = "{}m".format(standard_depth)
 
@@ -635,6 +619,9 @@ dat_dict_new = triangle_to_regular_v2(
     left_lon=-160, right_lon=-102, bot_lat=25, top_lat=62, var_units=variable_units,
     var_cmap=var_colourmap)
 
+tif_filename = convert_to_tif_v2(dat_dict_new, output_path, variable_name, standard_depth,
+                                 season_abbrev)
+
 for sa in season_abbrevs[:]:
     print(sa)
     clim_data_filename = os.path.join(clim_data_path + "{}_{}m_{}_TG_mean_est.txt".format(
@@ -648,11 +635,17 @@ for sa in season_abbrevs[:]:
     #     depth=standard_depth)
 
     # Must convert triangle to regular before converting to tif
-    clim_data_r = triangle_to_regular_v2()
+    dat_dict = read_climatologies_v2(trigrid_path, clim_data_filename, sa)
 
-    # Convert txt file to tif file
-    convert_to_tif_v2(trigrid_path, clim_data_filename, output_path,
-                      var_name=variable_name, depth=standard_depth, season=sa)
+    left_lon, right_lon, bot_lat, top_lat = [-160, -102, 25, 62]
+
+    dat_dict_new = triangle_to_regular_v2(
+        dat_dict, trigrid_path, clim_data_path, "Oxy", standard_depth, sa,
+        left_lon=-160, right_lon=-102, bot_lat=25, top_lat=62, var_units=variable_units,
+        var_cmap=var_colourmap)
+
+    tif_filename = convert_to_tif_v2(dat_dict_new, output_path, variable_name,
+                                     standard_depth, sa)
 
 # ---------------------------------------------------------------------------
 # ------------------------See what this .npy file is like--------------------

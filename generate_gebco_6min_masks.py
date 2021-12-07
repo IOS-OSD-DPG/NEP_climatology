@@ -142,7 +142,7 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
     ncout = xr.Dataset(coords={'lon': Lon2d[0], 'lat': Lat2d[:, 0]},
                        data_vars={'mask': (('lat', 'lon'), mask_v3)})
 
-    ncout_filename = os.path.join(ncout_dir + '{}_{}m_{}_{}_mask_6min_v2.nc'.format(
+    ncout_filename = os.path.join(ncout_dir + '{}_{}m_{}_{}_mask_6min.nc'.format(
         var_name, depth, year, season))
 
     ncout.to_netcdf(ncout_filename)
@@ -176,8 +176,8 @@ def plot_mask_coverage(mask_filename):
 
 # -----------------------------Choose data file----------------------------------
 var_name = 'Oxy'
-years = [1992]  # np.arange(1991, 2021)  # [1995, 2005]
-szns = ['AMJ']  # ['JFM', 'AMJ', 'JAS', 'OND']
+years = np.arange(2002, 2021)  # [1995, 2005]
+szns = ['JFM', 'AMJ', 'JAS', 'OND']
 
 # standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
 standard_depths = [5]
@@ -219,7 +219,7 @@ for dep in standard_depths:
         for szn in szns:
             print(szn)
             # Skip making mask if it already exists
-            if os.path.exists(out_dir + '{}_{}m_{}_{}_mask_6min_v2.nc'.format(
+            if os.path.exists(out_dir + '{}_{}m_{}_{}_mask_6min.nc'.format(
                     var_name, dep, yr, szn)):
                 print('Mask already exists for this file -- skipping')
                 continue
@@ -247,3 +247,15 @@ for dep in standard_depths:
 # c = Lon.shape[1]
 # gb_RAM_needed = r * c * 8 / 1e9
 # print(gb_RAM_needed)
+# ----------------------------------------------------------------------------------
+# import glob
+# import os
+#
+# # Rename files to remove v2 which was a mistake to keep
+# mask_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
+#            '16_diva_analysis\\masks\\'
+#
+# nclist = glob.glob(mask_dir + '*v2.nc')
+# for f in nclist:
+#     f_newname = f.replace('_v2', '')
+#     os.rename(f, f_newname)

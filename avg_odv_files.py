@@ -93,4 +93,6 @@ print(df_mean_filename)
 
 df_mean_all.to_csv(df_mean_filename, index=False)
 
+# ---------------------------------------------------------------------------------
 
+# Average DIVAnd files that have already been projected to the triangle grid

@@ -130,9 +130,9 @@ end
 # -----------------------------------------------------------------------------
 
 variable_name = "Oxy"
-standard_depth = 5
-years = collect(2008:2020)  # Creates increasing array
-season = "JAS"
+standard_depth = 0
+years = [1991] # collect(2008:2020)  # Creates increasing array
+season = "AMJ"
 # subsamp_interval = 1
 
 # Paths for windows

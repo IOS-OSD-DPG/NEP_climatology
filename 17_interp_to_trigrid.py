@@ -22,36 +22,36 @@ import matplotlib.pyplot as plt
 # Set constants
 var_name = 'Oxy'
 var_units = r'$\mu$' + 'mol/kg'  # Micromol per kilogram
-year = 2010
-szn = 'OND'
-standard_depth = 5
+year = 1991
+szn = 'JFM'
+standard_depth = 0
 radius_deg = 2  # search radius
 radius_km = deg2km(radius_deg)
 
 # -----------------------Import data----------------------------------------------------
 
 mforeman_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\MForeman\\'
-trigrid_filename = os.path.join(mforeman_dir + 'nep35_reord_latlon_wgeo.ngh')
+grid_filename = os.path.join(mforeman_dir + 'nep35_reord_latlon_wgeo.ngh')
 
 # Read in triangle grid data
-trigrid_data = np.genfromtxt(
-    trigrid_filename, dtype="i8,f8,f8, i4, f8, i4, i4, i4, i4, i4, i4, i4",
+grid_data = np.genfromtxt(
+    grid_filename, dtype="i8,f8,f8, i4, f8, i4, i4, i4, i4, i4, i4, i4",
     names=['node', 'lon', 'lat', 'type', 'depth', 's1', 's2', 's3', 's4', 's5', 's6'],
     delimiter="", skip_header=3)
 
 # Read in analysis from DIVAnd
 interp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
-             '16_diva_analysis\\'
+             '16_diva_analysis\\analysis\\fithorzlen\\'
 field_filename = os.path.join(
-    interp_dir + '{}_{}m_{}_{}_analysis2d_2deg.nc'.format(
+    interp_dir + '{}_{}m_{}_{}_analysis2d.nc'.format(
         var_name, standard_depth, year, szn))
 
 diva_data = open_dataset(field_filename)
 
 # Convert longitude to positive
-lon_diva = diva_data.Longitude.data + 360.
-lat_diva = diva_data.Latitude.data
-field_diva = diva_data.analysis.data + diva_data.pre_analysis_obs_mean.data
+lon_diva = diva_data.longitude.data + 360.
+lat_diva = diva_data.latitude.data
+field_diva = diva_data.vout.data  # + diva_data.pre_analysis_obs_mean.data
 
 print(field_diva.shape)
 
@@ -168,7 +168,7 @@ print(lon_diva2d, lat_diva2d, sep='\n')
 
 # Do all points to simplify plotting???
 field_scipy = griddata(points=(lon_diva2d.flatten(), lat_diva2d.flatten()),
-                       values=field_diva.flatten(), xi=(trigrid_data['lon'], trigrid_data['lat']),
+                       values=field_diva.flatten(), xi=(grid_data['lon'], grid_data['lat']),
                        method='linear', fill_value=np.nan)
 
 print(field_scipy.shape)
@@ -215,13 +215,13 @@ m = Basemap(llcrnrlon=left_lon, llcrnrlat=bot_lat,
 # tri_pt = mtri.Triangulation(xpt, ypt, tri_data_subset)
 
 # All
-xpt, ypt = m(trigrid_data['lon'], trigrid_data['lat'])
+xpt, ypt = m(grid_data['lon'], grid_data['lat'])
 # tri_pt = mtri.Triangulation(xpt, ypt, tri_data)
 
 # tri = mtri.Triangulation(trigrid_lon_subset_qc, trigrid_lat_subset_qc, tri_data_subset)  #, mask=tri_mask
 
 # Try with un-subsetted
-tri = mtri.Triangulation(trigrid_data['lon'], trigrid_data['lat'], tri_data)
+tri = mtri.Triangulation(grid_data['lon'], grid_data['lat'], tri_data)
 
 triangles = tri.triangles
 
@@ -271,7 +271,7 @@ csv_outname = os.path.join(lin_interp_dir + '{}_{}m_{}_{}_tri_hasnan.csv'.format
 #     columns=['Node', 'Longitude', 'Latitude', 'Value'])
 
 df_lin = pd.DataFrame(
-    data=np.array([trigrid_data['node'], trigrid_data['lon'], trigrid_data['lat'],
+    data=np.array([grid_data['node'], grid_data['lon'], grid_data['lat'],
                    field_scipy]).transpose(),
     columns=['Node', 'Longitude', 'Latitude', 'Value'])
 
