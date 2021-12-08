@@ -8,8 +8,8 @@ colourmap = "Blues"
 variable = "Oxy"
 variable_units = r"$\mu$" + "mol/kg"
 standard_depth = 0
-years = [1991]  # np.arange(1992, 2021)
-season = "JFM"
+years = np.arange(1992, 2021)
+season = "OND"
 # nle_value = 1
 lenxy_method = "fithorzlen"  # correlation length estimation method
 

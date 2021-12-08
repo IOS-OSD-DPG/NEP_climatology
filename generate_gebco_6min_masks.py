@@ -176,11 +176,11 @@ def plot_mask_coverage(mask_filename):
 
 # -----------------------------Choose data file----------------------------------
 var_name = 'Oxy'
-years = np.arange(2002, 2021)  # [1995, 2005]
+years = np.arange(2013,2021)  # np.arange(1991, 2021)  # [1995, 2005]
 szns = ['JFM', 'AMJ', 'JAS', 'OND']
 
 # standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
-standard_depths = [5]
+standard_depths = np.arange(0, 105, 5)  # [5]
 # Already made all 0m and 5m masks so skip to 10m
 # standard_depths = get_standard_levels(
 #     'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\WOA_Standard_Depths.txt')[2:]
