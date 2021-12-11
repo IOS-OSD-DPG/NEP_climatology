@@ -3,8 +3,8 @@ Take the regular grid field from DIVAnd and linearly-interpolate it to
 Mike Foreman's unstructured triangle grid
 """
 import pandas as pd
-from scipy.interpolate import griddata
-from xarray import open_dataset
+from scipy.interpolate import griddata, interpn
+from xarray import open_dataset, Dataset
 import os
 import numpy as np
 # import geopandas
@@ -17,9 +17,52 @@ from clim_helpers import deg2km
 import matplotlib.tri as mtri
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
+# from dask import delayed
 
 
-# Set constants
+def linterp_to_TG(rg_dir, output_dir, tg_file, mask_file, var_name, depth, yr, szn):
+    # Linear interpolation from 6 minute regular grid to unstructured triangle grid
+    rg_file = os.path.join(rg_dir + '{}_{}m_{}_{}_analysis2d.nc')
+    rg_ds = open_dataset(rg_file)
+    
+    # Open grid file containing coordinates of triangle knots
+    tg_data = np.genfromtxt(
+        tg_file, dtype="i8,f8,f8, i4, f8, i4, i4, i4, i4, i4, i4, i4",
+        names=['node', 'lon', 'lat', 'type', 'depth', 's1', 's2', 's3', 's4', 
+               's5', 's6'],
+        delimiter="", skip_header=3)
+    
+    # Create 2d matrix holding trigrid points
+    tg_points = np.array(
+        [tg_data['lon'].tolist(), tg_data['lat'].tolist()]).transpose()
+
+    # Use nc masks to mask out land in tg_points?????????
+    # But the mask points are regular grid not trigrid...
+    mask_ds = open_dataset(mask_file)
+
+    # Prepare the regular grid data from DIVAnd for linear interpolation
+    x_rg = rg_ds.longitude.data
+    y_rg = rg_ds.latitude.data
+    var_data = rg_ds.vout.data
+    
+    # xi: The coordinates to sample the gridded data at
+    tg_values = interpn(points=(x_rg, y_rg), values=var_data, xi=tg_points[0],
+                        method='linear', bounds_error=False, fill_value=np.nan)
+    
+    # Export the values on the trigrid
+    ncout = Dataset(
+        coords={'longitude': tg_points[:, 0], 'latitude': tg_points[:, 1}, 
+        data_vars={'data_values': tg_values})
+    
+    ncout_filename = os.path.join(output_dir + '{}_{}m_{}_{}_tg.nc'.format(
+        var_name, depth, yr, szn))
+    ncout.to_netcdf(ncout_filename)
+    ncout.close()
+    
+    return ncout_filename
+
+
+# ----------------------------Set constants---------------------------------------------
 var_name = 'Oxy'
 var_units = r'$\mu$' + 'mol/kg'  # Micromol per kilogram
 year = 1991
