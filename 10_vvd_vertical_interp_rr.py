@@ -9,14 +9,19 @@
 oceApprox docs: https://rdrr.io/cran/oce/man/oceApprox.html
 """
 
+# Set R_HOME
+# Retrieve from command prompt using:> R RHOME
+import os
+os.environ['R_HOME'] = 'C:\\Users\\HourstonH\\Miniconda3\\envs\\clim38\\lib\\R'
+
 from rpy2 import robjects
-from rpy2.robjects.packages import importr, isinstalled
+from rpy2.robjects.packages import importr  # , isinstalled
 import pandas as pd
 import numpy as np
 from tqdm import trange
-import csv
+# import csv
+from clim_helpers import get_standard_levels
 # from scipy import interpolate
-
 
 # R PREPARATION
 
@@ -40,28 +45,16 @@ roceApprox = robjects.r['oceApprox']
 
 # END OF R SETUP
 
-# Import standard levels file
-file_sl = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
-          'WOA_Standard_Depths.txt'
+# # Import standard levels file
+# file_sl = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
+#           'WOA_Standard_Depths.txt'
+# sl_arr = get_standard_levels(file_sl)
 
-# Index column is the column of level number of each standard level
-df_sl = pd.read_csv(file_sl, sep=', ', engine='python')
-
-sl_list = []
-with open(file_sl, 'r') as infile:
-    reader = csv.reader(infile)
-    for row in reader:
-        sl_list += row
-
-# Remove empty elements: '' and ' '
-# Gotta love list comprehension
-sl_list_v2 = [int(x.strip(' ')) for x in sl_list if x not in ['', ' ']]
-
-# Convert list to array
-sl_arr = np.array(sl_list_v2)
+# Need to add some extra levels that the WOA is missing
+sl_arr = np.array([110, 120, 130, 140, 160, 170, 180, 190, 220, 240, 260,
+                   280, 320, 340, 360, 380])
 
 # Check to make sure that the standard depths are correct
-
 # Length should be 102 for WOA18 levels
 print(len(sl_arr))
 
@@ -188,7 +181,8 @@ df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
             'value_vs_depth\\10_vertical_interp\\'
 
 # 'rr' stands for Reiniger-Ross vertical interpolation
-df_outname = 'Oxy_1991_2020_value_vs_depth_rr.csv'
+# df_outname = 'Oxy_1991_2020_value_vs_depth_rr.csv'
+df_outname = 'Oxy_1991_2020_value_vs_depth_rr_part2.csv'
 
 df_out.to_csv(df_outdir + df_outname, index=False)
 
@@ -197,7 +191,8 @@ df_out.to_csv(df_outdir + df_outname, index=False)
 prof_drop_arr = np.setdiff1d(df_vvd.Profile_number, df_out.Profile_number)
 
 df_prof_drop = pd.Series(prof_drop_arr, name='Profile_number')
-series_name = 'Oxy_1991_2020_rr_prof_drop.csv'
+# series_name = 'Oxy_1991_2020_rr_prof_drop.csv'
+series_name = 'Oxy_1991_2020_rr_prof_drop_part2.csv'
 df_prof_drop.to_csv(df_outdir + series_name, index=False)
 
 

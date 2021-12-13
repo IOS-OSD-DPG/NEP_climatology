@@ -7,6 +7,8 @@ from xarray import open_dataset
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.tri as mtri
+from mpl_toolkits.basemap import Basemap
 import os
 
 
@@ -146,3 +148,76 @@ def szn_str2int(szn_string):
     else:
         print("Warning: Season {} not in {}".format(szn_string, szns))
         return None
+
+
+def plot_linterp_tg_data(tg_var_file, tri_dir, output_dir, var_name, var_units, var_cmap,
+                         depth, yr, szn, avged=False):
+    var_ds = open_dataset(tg_var_file)
+
+    if avged:
+        var_ds_data = var_ds.SL_value_30yr_avg.data
+    else:
+        var_ds_data = var_ds.SL_value.data
+
+    tri_fullpath = os.path.join(tri_dir, 'nep35_reord.tri')
+
+    # Read in triangle data .tri
+    tri_ds = np.genfromtxt(
+        tri_fullpath, skip_header=0, skip_footer=0, usecols=(1, 2, 3)) - 1
+
+    tri = mtri.Triangulation(var_ds.longitude.data, var_ds.latitude.data,
+                             tri_ds)  # attributes: .mask, .triangles, .edges, .neighbors
+
+    triangles = tri.triangles
+
+    # Create the plot
+    left_lon, right_lon, bot_lat, top_lat = [-160, -102, 25, 62]
+
+    m = Basemap(llcrnrlon=left_lon, llcrnrlat=bot_lat,
+                urcrnrlon=right_lon, urcrnrlat=top_lat,
+                projection='lcc',  # width=40000, height=40000, #lambert conformal project
+                resolution='h', lat_0=0.5 * (bot_lat + top_lat),
+                lon_0=0.5 * (left_lon + right_lon))  # lat_0=53.4, lon_0=-129.0)
+
+    # lcc: Lambert Conformal Projection;
+    # cyl: Equidistant Cylindrical Projection
+    # merc: Mercator Projection
+
+    # convert lat/lon to x/y map projection coordinates in meters
+    xpt, ypt = m(var_ds.longitude.data, var_ds.latitude.data)
+
+    fig = plt.figure(num=None, figsize=(8, 6), dpi=100)
+    m.drawcoastlines(linewidth=0.2)
+    m.drawmapboundary(fill_color='white')
+    m.fillcontinents(color='0.8')
+
+    cax = plt.tripcolor(xpt, ypt, triangles, var_ds_data, cmap=var_cmap,
+                        edgecolors='none', vmin=200, vmax=300)
+    # vmin=np.nanmin(var_data), vmax=np.nanmax(var_data))
+
+    # set the nan to white on the map
+    color_map = plt.cm.get_cmap().copy()
+    color_map.set_bad('w')
+
+    # Set more plot parameters
+    cbar = fig.colorbar(cax, shrink=0.7)  # set scale bar
+    cbar.set_label('{} [{}]'.format(var_name, var_units), size=14)  # scale label
+    # labels = [left,right,top,bottom]
+    parallels = np.arange(bot_lat, top_lat,
+                          4.)  # parallels = np.arange(48., 54, 0.2); parallels = np.linspace(bot_lat, top_lat, 10)
+    m.drawparallels(parallels, labels=[True, False, False, False])  # draw parallel lat lines
+    meridians = np.arange(left_lon, -100.0, 15.)  # meridians = np.linspace(int(left_lon), right_lon, 5)
+    m.drawmeridians(meridians, labels=[False, False, True, True])
+
+    # Use y parameter to move title up to avoid overlap with axis ticks
+    if avged:
+        plt.title("{} {}m 1991-2020 {} TG".format(var_name, depth, szn), y=1.08)
+    else:
+        plt.title("{} {}m {} {} TG".format(var_name, depth, yr, szn), y=1.08)
+
+    png_filename = os.path.join(output_dir + '{}_{}m_{}_{}_tg.png'.format(
+        var_name, depth, yr, szn))
+    fig.savefig(png_filename, dpi=400)
+    plt.close(fig)
+
+    return png_filename

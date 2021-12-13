@@ -11,7 +11,7 @@ import numpy as np
 # from shapely.geometry import Polygon, Point
 # from haversine import haversine
 # from tqdm import trange
-from clim_helpers import deg2km
+from clim_helpers import plot_linterp_tg_data
 # from scipy.spatial import Delaunay
 # from matplotlib.tri import Triangulation, TriAnalyzer, UniformTriRefiner
 import matplotlib.tri as mtri
@@ -20,9 +20,23 @@ import matplotlib.pyplot as plt
 # from dask import delayed
 
 
-def linterp_to_TG(rg_dir, output_dir, tg_file, mask_file, var_name, depth, yr, szn):
+def linterp_to_TG(rg_file, output_dir, tg_file, var_name, var_units, depth, yr, szn, mask_file=None):
+    """
+    Perform linear interpolation on DIVAnd variable field (regular 6 minute grid)
+    to get values on unstructured triangle grid
+    :param rg_file:
+    :param output_dir:
+    :param tg_file:
+    :param var_name:
+    :param var_units: "micromol per kg" for oxygen, "degrees Celsius" for temperature
+    :param depth:
+    :param yr:
+    :param szn:
+    :param mask_file:
+    :return: name of output netCDF file of values on unstructured triangle grid
+    """
+
     # Linear interpolation from 6 minute regular grid to unstructured triangle grid
-    rg_file = os.path.join(rg_dir + '{}_{}m_{}_{}_analysis2d.nc')
     rg_ds = open_dataset(rg_file)
     
     # Open grid file containing coordinates of triangle knots
@@ -31,50 +45,87 @@ def linterp_to_TG(rg_dir, output_dir, tg_file, mask_file, var_name, depth, yr, s
         names=['node', 'lon', 'lat', 'type', 'depth', 's1', 's2', 's3', 's4', 
                's5', 's6'],
         delimiter="", skip_header=3)
-    
+
+    print('Opened grid data file')
+
     # Create 2d matrix holding trigrid points
     tg_points = np.array(
         [tg_data['lon'].tolist(), tg_data['lat'].tolist()]).transpose()
 
     # Use nc masks to mask out land in tg_points?????????
     # But the mask points are regular grid not trigrid...
-    mask_ds = open_dataset(mask_file)
+    # mask_ds = open_dataset(mask_file)
 
     # Prepare the regular grid data from DIVAnd for linear interpolation
-    x_rg = rg_ds.longitude.data
-    y_rg = rg_ds.latitude.data
-    var_data = rg_ds.vout.data
+    # Convert longitude to positive
+    x_rg = rg_ds.longitude.data + 360.  # (10800,)
+    y_rg = rg_ds.latitude.data  # (7200,)
+    var_data = rg_ds.vout.data  # (7200, 10800)
     
     # xi: The coordinates to sample the gridded data at
-    tg_values = interpn(points=(x_rg, y_rg), values=var_data, xi=tg_points[0],
+    # Needed to transpose observation points...
+    print('Beginning interpolation...')
+    tg_values = interpn(points=(x_rg, y_rg), values=var_data.transpose(), xi=tg_points,
                         method='linear', bounds_error=False, fill_value=np.nan)
-    
+    print('Completed interpolation')
+
     # Export the values on the trigrid
     ncout = Dataset(
-        coords={'longitude': tg_points[:, 0], 'latitude': tg_points[:, 1}, 
-        data_vars={'data_values': tg_values})
-    
+        coords={'node': tg_data['node']},
+        data_vars={'longitude': (('node'), tg_data['lon']),
+                   'latitude': (('node'), tg_data['lat']),
+                   'SL_value': (('node'), tg_values)})
+
+    # Add unit attributes to data variables
+    ncout.longitude.attrs['units'] = 'degrees East'
+    ncout.latitude.attrs['units'] = 'degrees North'
+    ncout.SL_value.attrs['units'] = var_units
+
     ncout_filename = os.path.join(output_dir + '{}_{}m_{}_{}_tg.nc'.format(
         var_name, depth, yr, szn))
     ncout.to_netcdf(ncout_filename)
     ncout.close()
-    
+    # Examine this file after closing
     return ncout_filename
+    # return tg_values
 
 
-# ----------------------------Set constants---------------------------------------------
-var_name = 'Oxy'
-var_units = r'$\mu$' + 'mol/kg'  # Micromol per kilogram
+# ----------------------------Set constants/paths---------------------------------------
+variable_name = 'Oxy'
+variable_units_math = r'$\mu$' + 'mol/kg'  # Micromol per kilogram
+variable_units = 'micromoles per kilogram'
+variable_cmap = 'Blues'
+years = [1991]  # np.arange(1991, 2021)
 year = 1991
-szn = 'JFM'
-standard_depth = 0
-radius_deg = 2  # search radius
-radius_km = deg2km(radius_deg)
+season = 'OND'
+standard_depth = 5
+# radius_deg = 2  # search radius
+# radius_km = deg2km(radius_deg)
+
+mforeman_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\MForeman\\'
+grid_filename = os.path.join(mforeman_folder + 'nep35_reord_latlon_wgeo.ngh')
+
+interp_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                'value_vs_depth\\16_diva_analysis\\analysis\\fithorzlen\\'
+
+output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                'value_vs_depth\\17_lin_interp_to_trigrid\\'
+
+# ------------------------------Test linear interpolation-------------------------------
+for y in years:
+    interp_file = os.path.join(interp_folder + '{}_{}m_{}_{}_analysis2d.nc'.format(
+        variable_name, standard_depth, y, season))
+    print(interp_file)
+    if os.path.exists(interp_file):
+        ncname = linterp_to_TG(interp_file, output_folder, grid_filename, variable_name,
+                               variable_units, standard_depth, y, season)
+
+        pngname = plot_linterp_tg_data(ncname, mforeman_folder, output_folder,
+                                       variable_name, variable_units_math, variable_cmap,
+                                       standard_depth, y, season)
+print('done')
 
 # -----------------------Import data----------------------------------------------------
-
-mforeman_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\MForeman\\'
-grid_filename = os.path.join(mforeman_dir + 'nep35_reord_latlon_wgeo.ngh')
 
 # Read in triangle grid data
 grid_data = np.genfromtxt(
@@ -83,11 +134,9 @@ grid_data = np.genfromtxt(
     delimiter="", skip_header=3)
 
 # Read in analysis from DIVAnd
-interp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
-             '16_diva_analysis\\analysis\\fithorzlen\\'
 field_filename = os.path.join(
-    interp_dir + '{}_{}m_{}_{}_analysis2d.nc'.format(
-        var_name, standard_depth, year, szn))
+    interp_folder + '{}_{}m_{}_{}_analysis2d.nc'.format(
+        variable_name, standard_depth, year, season))
 
 diva_data = open_dataset(field_filename)
 
@@ -215,13 +264,14 @@ field_scipy = griddata(points=(lon_diva2d.flatten(), lat_diva2d.flatten()),
                        method='linear', fill_value=np.nan)
 
 print(field_scipy.shape)
-print(len(field_scipy[~np.isnan(field_scipy)]), len(field_scipy[~np.isnan(field_scipy)]) / len(field_scipy))
+print(len(field_scipy[~np.isnan(field_scipy)]),
+      len(field_scipy[~np.isnan(field_scipy)]) / len(field_scipy))
 
 # ------------------Plot the linearly-interpolated data-----------------------------------
 # Copied from Lu Guan T_climatology.py
 
 # Read in the triangles that are listed by their 3 nodes
-tri_filename = os.path.join(mforeman_dir + 'nep35_reord.tri')
+tri_filename = os.path.join(mforeman_folder + 'nep35_reord.tri')
 
 tri_data = np.genfromtxt(tri_filename, skip_header=0, skip_footer=0, usecols=(1, 2, 3))-1
 
@@ -283,7 +333,7 @@ cax = plt.tripcolor(xpt, ypt, triangles, field_scipy, cmap='jet', edgecolors='no
 #                   cmap='YlOrBr', vmin=np.nanmin(var_all), vmax=np.nanmax(var_all))
 
 cbar = fig.colorbar(cax, shrink=0.7)  # set scale bar
-cbar.set_label('{} [{}]'.format(var_name, var_units), size=14)  # scale label
+cbar.set_label('{} [{}]'.format(variable_name, variable_units), size=14)  # scale label
 # labels = [left,right,top,bottom]
 parallels = np.arange(bot_lat, top_lat, 4.)
 # parallels = np.arange(48., 54, 0.2); parallels = np.linspace(bot_lat, top_lat, 10)
@@ -296,7 +346,7 @@ m.drawmeridians(meridians, labels=[False, False, True, True])
 lin_interp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
                  'value_vs_depth\\17_lin_interp_to_trigrid\\'
 png_name = os.path.join(lin_interp_dir + '{}_{}m_{}_{}_tri_hasnan.png'.format(
-    var_name, standard_depth, year, szn))
+    variable_name, standard_depth, year, season))
 plt.savefig(png_name)
 
 plt.close(fig)
@@ -306,7 +356,7 @@ plt.close(fig)
 lin_interp_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
                  'value_vs_depth\\17_lin_interp_to_trigrid\\'
 csv_outname = os.path.join(lin_interp_dir + '{}_{}m_{}_{}_tri_hasnan.csv'.format(
-    var_name, standard_depth, year, szn))
+    variable_name, standard_depth, year, season))
 
 # df_lin = pd.DataFrame(
 #     data=np.array([trigrid_node_subset_qc, trigrid_lon_subset_qc, trigrid_lat_subset_qc,
