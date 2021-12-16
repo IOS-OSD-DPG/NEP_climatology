@@ -5,16 +5,25 @@ import pandas as pd
 import numpy as np
 from tqdm import trange
 from copy import deepcopy
+import os
 
 
-# # Now with the one big csv file
-# infile = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
-#          'ALL_Profiles_Oxy_1991_2020.csv'
+variable_name = 'Sal'  # 'Sal' 'Oxy'
 
+# Now with the one big csv file
 infile = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'profile_data_tables\\Argo\\NODC_noCAD_PFL_Profiles_Oxy_1991_2020.csv'
+         'profile_data_tables\\ALL_Profiles_{}_1991_2020.csv'.format(
+    variable_name)
+
+duplicate_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                   'profile_data_tables\\duplicates_flagged\\'
+
+# infile = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#          'profile_data_tables\\Argo\\NODC_noCAD_PFL_Profiles_Oxy_1991_2020.csv'
 
 df_all = pd.read_csv(infile)
+print(df_all.head())
+print(df_all.shape)
 
 df_all.drop(columns=['Unnamed: 0'], inplace=True)
 
@@ -53,7 +62,7 @@ print(len(df_all['Exact_duplicate_row'].iloc[(df_all['Exact_duplicate_row'] == F
 # edf_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
 #            'duplicates_flagged\\ALL_Profiles_Oxy_1991_2020_edf.csv'
 
-edf_name = infile.replace('.csv', '_edf.csv')
+edf_name = duplicate_folder + os.path.basename(infile).replace('.csv', '_edf.csv')
 
 df_all.to_csv(edf_name)
 
@@ -74,6 +83,10 @@ df_all.loc[df_all['Exact_duplicate_row'].values, 'CTD_BOT_duplicate_row'] = Fals
 print(len(df_all))
 print(len(df_all.iloc[df_all['Exact_duplicate_row'].values]))
 print(len(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values]))
+
+print(np.unique(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values].loc[:, 'Instrument_type']))
+
+print(np.unique(df_all.loc[:, 'Instrument_type']))
 
 # CTD-BOT exact duplicates flagged
 cb_edf_name = edf_name.replace('edf', 'cb_edf')
@@ -199,11 +212,10 @@ df_all = pd.read_csv(cb_edf_name)
 
 df_out = pdt_inexact_dupl(df_all)
 
-which = 'PFL'  # ALL
+which = 'ALL'  # 'PFL'  # ALL
 
-df_all_out_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\' \
-                  'duplicates_flagged\\' \
-                  '{}_Profiles_Oxy_1991_2020_ie_001ll_pi.csv'.format(which)
+df_all_out_name = duplicate_folder + '{}_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
+    which, variable_name)
 
 df_out.to_csv(df_all_out_name)
 

@@ -128,17 +128,19 @@ def prep_pdt_v2(pdt_fname):
 vvd_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
           'value_vs_depth\\1_original\\'
 # vvd_fname = vvd_dir + 'ALL_Oxy_1991_2020_value_vs_depth.csv'
+vvd_list = glob.glob(vvd_dir + '*Temp*value_vs_depth_0.csv')
 
-vvd_list = glob.glob(vvd_dir + 'WOD_PFL_Oxy*0.csv')
+# vvd_list = glob.glob(vvd_dir + 'WOD_PFL_Oxy*0.csv')
+print(len(vvd_list))
 vvd_list.sort()
 
 # Find the duplicate flags file
-# pdt_fpath = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-#             'profile_data_tables\\duplicates_flagged\\' \
-#             'ALL_Profiles_Oxy_1991_2020_ie_001ll_check2.csv'
 pdt_fpath = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-            'profile_data_tables\\Argo\\' \
-            'NODC_noCAD_PFL_Profiles_Oxy_1991_2020_cb_edf.csv'
+            'profile_data_tables\\duplicates_flagged\\' \
+            'ALL_Profiles_Oxy_1991_2020_ie_001ll_check2.csv'
+# pdt_fpath = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#             'profile_data_tables\\Argo\\' \
+#             'NODC_noCAD_PFL_Profiles_Oxy_1991_2020_cb_edf.csv'
 # pdt = prep_pdt_v2(pdt_fpath)
 
 pdt = pd.read_csv(pdt_fpath)

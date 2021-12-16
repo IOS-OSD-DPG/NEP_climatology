@@ -7,6 +7,9 @@ from tqdm import trange
 from functools import reduce
 from clim_helpers import date_string_to_datetime, open_by_source
 
+# Second check on inexact duplicates flagged in the previous check
+# Confirm flagged duplicates
+
 
 def array_all_nan(arr):
     # Return true if input array contains only nans
@@ -14,7 +17,7 @@ def array_all_nan(arr):
     return cond
 
 
-def get_ios_profile_data(ncdata, cruise_number, time, lat, lon):
+def get_ios_profile_data(ncdata, cruise_number, time, lat, lon, var_name):
     # Subset cruise, time, lat, lon
     # Use numpy.where, index[0] to access first element of tuple
     # Second element of tuple is empty
@@ -36,8 +39,15 @@ def get_ios_profile_data(ncdata, cruise_number, time, lat, lon):
     # This should have narrowed it down to the profiles we want
     # Otherwise, will have to subset out the exact duplicates and the CTD-BOT duplicates
     # Subset the umol/kg oxygen data
-
-    prof = ncdata.DOXMZZ01.data[prof_subsetter]
+    if var_name == 'Oxy':
+        try:
+            prof = ncdata.DOXMZZ01.data[prof_subsetter]
+        except AttributeError:
+            prof = ncdata.DOXYZZ01.data[prof_subsetter]
+    elif var_name == 'Temp':
+        prof = ncdata.TEMPS901.data[prof_subsetter]
+    elif var_name == 'Sal':
+        prof = ncdata.PSALST01.data[prof_subsetter]
 
     # Close dataset
     ncdata.close()
@@ -46,16 +56,21 @@ def get_ios_profile_data(ncdata, cruise_number, time, lat, lon):
     return prof
 
 
-def get_ios_wp_profile_data(ncdata):
-    # Return the oxygen values
-    try:
-        prof = ncdata.DOXMZZ01.data
-    except AttributeError:
-        prof = ncdata.DOXYZZ01.data
+def get_ios_wp_profile_data(ncdata, var_name):
+    if var_name == 'Oxy':
+        # Return the oxygen values
+        try:
+            prof = ncdata.DOXMZZ01.data
+        except AttributeError:
+            prof = ncdata.DOXYZZ01.data
+    elif var_name == 'Temp':
+        prof = ncdata.TEMPS901.data
+    elif var_name == 'Sal':
+        prof = ncdata.PSALZZ01.data
     return prof
 
 
-def get_nodc_profile_data(ncdata, cruise_number, time, lat, lon):
+def get_nodc_profile_data(ncdata, cruise_number, time, lat, lon, var_name):
     # Data are in xarray format
     # Extract profile
 
@@ -74,15 +89,21 @@ def get_nodc_profile_data(ncdata, cruise_number, time, lat, lon):
         np.intersect1d, (cruise_subsetter, time_subsetter, lat_subsetter,
                          lon_subsetter))
 
-    prof_row_ind = ncdata.Oxygen_row_size.data[prof_subsetter].astype(int)
-
     # Don't need to extract the profile start indices
     # For subsetting profiles in flat Oxygen array
     # Get index of the first Oxygen observation of each profile in the
     # flat Oxygen array
 
     # Extract the matching profile based on selected indices
-    prof = ncdata.Oxygen.data[prof_row_ind]
+    if var_name == 'Oxy':
+        prof_row_ind = ncdata['Oxygen_row_size'].data[prof_subsetter].astype(int)
+        prof = ncdata.Oxygen.data[prof_row_ind]
+    elif var_name == 'Temp':
+        prof_row_ind = ncdata['Temperature_row_size'].data[prof_subsetter].astype(int)
+        prof = ncdata.Temperature.data[prof_row_ind]
+    elif var_name == 'Sal':
+        prof_row_ind = ncdata['Salinity_row_size'].data[prof_subsetter].astype(int)
+        prof = ncdata.Salinity.data[prof_row_ind]
 
     # Close dataset
     ncdata.close()
@@ -120,27 +141,33 @@ def get_meds_profile_data(df, cruise_number, time, lat, lon):
     return prof
 
 
-def get_profile_data(data, filename, cruise_number=None, time=None,
+def get_profile_data(data, filename, var_name, cruise_number=None, time=None,
                      lat=None, lon=None):
     if 'IOS' in filename:
-        prof = get_ios_profile_data(data, cruise_number, time, lat, lon)
+        prof = get_ios_profile_data(data, cruise_number, time, lat, lon, var_name)
     elif filename.endswith('.bot.nc') or filename.endswith('.ctd.nc'):
         # IOS Water Properties data
-        prof = get_ios_wp_profile_data(data)
-    elif filename.startswith('Oxy'):
+        prof = get_ios_wp_profile_data(data, var_name)
+    elif filename.startswith(var_name):
         # NODC WOD data
-        prof = get_nodc_profile_data(data, cruise_number, time, lat, lon)
+        prof = get_nodc_profile_data(data, cruise_number, time, lat, lon, var_name)
     elif filename.startswith('MEDS'):
+        # Don't need to pass variable name
         prof = get_meds_profile_data(data, cruise_number, time, lat, lon)
+    else:
+        print('Source file cannot be identified; returning None')
+        return None
 
     return prof
 
 
-def prep_pdt():
+def prep_pdt(var_name):
     # Prepare the profile data table for inexact duplicate checking against raw profiles
     # Take full data file not the subs (subset) version
-    df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
-              'duplicates_flagged\\ALL_Profiles_Oxy_1991_2020_ie_001ll_pi.csv'
+    df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+              'profile_data_tables\\duplicates_flagged\\' \
+              'ALL_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
+                    var_name)
 
     df_pdt = pd.read_csv(df_name)
 
@@ -159,52 +186,83 @@ def prep_pdt():
     # Can't have a zeroth day of the month...
     df_pdt = date_string_to_datetime(df_pdt)
 
-    # Rename MEDS source file names
-    meds_subsetter = np.where(
-        df_pdt.Source_data_file_name == 'MEDS_ASCII_1991_2000.csv')[0]
-
-    df_pdt.loc[meds_subsetter,
-               'Source_data_file_name'] = 'MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
+    # # Rename MEDS source file names
+    # meds_subsetter = np.where(
+    #     df_pdt.Source_data_file_name == 'MEDS_ASCII_1991_2000.csv')[0]
+    # df_pdt.loc[meds_subsetter,
+    #            'Source_data_file_name'] = 'MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
 
     # print(df_pdt.loc[meds_subsetter, 'Source_data_file_name'])
 
     return df_pdt
 
 
-def get_filenames_dict():
-    IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\IOS_CIOOS\\'
-    IOS_files = glob.glob(IOS_dir + 'IOS_BOT_Profiles_Oxy*.nc', recursive=False)
-    IOS_files += glob.glob(IOS_dir + 'IOS_CTD_Profiles_Oxy*.nc', recursive=False)
-    IOS_files.sort()
+def get_filenames_dict(var_name):
+    # IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+    #           'IOS_CIOOS\\'
+    # ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+    #               'SHuntington\\'
+    # WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+    #                 'WOD_extracts\\Oxy_WOD_May2021_extracts\\'
+    # WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+    #               'WOD_extracts\\WOD_July_CDN_nonIOS_extracts\\'
+    # MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+    #            'meds_data_extracts\\bo_extracts\\'
 
-    # Create dictionary for file names and their base names
-    # ios_fname_dict = {}
-    # for f in IOS_files:
-    #     ios_fname_dict.update({basename(f): f})
-
-    ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
+    IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
+    ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
                   'SHuntington\\'
+    WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
+                    'WOD_July_nonCDN_extracts\\'
+    WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
+                  'WOD_July_CDN_nonIOS_extracts\\'
+    MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
+
+    # Search files
+    IOS_files = glob.glob(IOS_dir + 'IOS_BOT_Profiles_{}*.nc'.format(var_name),
+                          recursive=False)
+    IOS_files += glob.glob(IOS_dir + 'IOS_CTD_Profiles_{}*.nc'.format(var_name),
+                           recursive=False)
+    IOS_files.sort()
+    print('Number of IOS CIOOS files: {}'.format(len(IOS_files)))
+
     # Get bot files
     ios_wp_files = glob.glob(ios_wp_path + '*.bot.nc', recursive=False)
     # Get ctd files
     ios_wp_files += glob.glob(ios_wp_path + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
 
-    # Import WOD data
-    WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
-                    'WOD_extracts\\Oxy_WOD_May2021_extracts\\'
-    WOD_nocad_files = glob.glob(WOD_nocad_dir + 'Oxy*OSD.nc', recursive=False)
-    WOD_nocad_files.sort()
+    print('Number of IOS WP files: {}'.format(len(ios_wp_files)))
 
-    # Returns no files since there are no Oxy OSD data
-    WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
-                  'WOD_extracts\\WOD_July_CDN_nonIOS_extracts\\'
-    WOD_cad_files = glob.glob(WOD_cad_dir + 'Oxy*OSD.nc', recursive=False)
+    # Get WOD data
+    if var_name == 'Oxy':
+        # Seach only OSD data since it's the only reliable instrument for collecting Oxy
+        WOD_nocad_files = glob.glob(WOD_nocad_dir + '{}*OSD.nc'.format(var_name),
+                                    recursive=False)
+        # Returns no files for Oxy since there are no Oxy OSD data
+        WOD_cad_files = glob.glob(WOD_cad_dir + '{}*OSD.nc'.format(var_name),
+                                  recursive=False)
+    else:
+        WOD_nocad_files = glob.glob(WOD_nocad_dir + '{}*.nc'.format(var_name),
+                                    recursive=False)
+        WOD_cad_files = glob.glob(WOD_cad_dir + '{}*.nc'.format(var_name),
+                                  recursive=False)
+
+    print('Number of WOD noCAD files: {}'.format(len(WOD_nocad_files)))
+    print('Number of WOD CAD files: {}'.format(len(WOD_cad_files)))
+    WOD_nocad_files.sort()
     WOD_cad_files.sort()
 
     # Import MEDS data
-    MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
-               'meds_data_extracts\\bo_extracts\\'
-    MEDS_files = glob.glob(MEDS_dir + '*.csv', recursive=False)
+    if var_name == 'Sal':
+        var_name_meds = 'PSAL'
+    elif var_name == 'Temp':
+        var_name_meds = 'TEMP'
+    elif var_name == 'Oxy':
+        var_name_meds = 'DOXY'
+
+    MEDS_files = glob.glob(MEDS_dir + '*{}*.csv'.format(var_name_meds), recursive=False)
+
+    print('Number of MEDS files: {}'.format(len(MEDS_files)))
     MEDS_files.sort()
 
     all_files = IOS_files + ios_wp_files + WOD_nocad_files + WOD_cad_files + MEDS_files
@@ -218,16 +276,16 @@ def get_filenames_dict():
     return all_fname_dict
 
 
-##########################################
+# -----------------------------------------------------------
 # Verify the inexact duplicates against the raw data profiles
 
 
-def run_check2():
+def run_check2(var_name, output_dir):
     # Get dictionary of data files with their basenames as keys
-    fname_dict = get_filenames_dict()
+    fname_dict = get_filenames_dict(var_name)
 
     # Dataframe containing the partner indices
-    df = prep_pdt()
+    df = prep_pdt(var_name)
 
     # Things to check:
     # mission_id (cruise number), instrument, time, latitude, longitude
@@ -239,7 +297,7 @@ def run_check2():
     df_subset = df.loc[subsetter]
 
     # Iterate through df_subset
-    for i in trange(len(df_subset)):  # 200
+    for i in trange(len(df_subset)):  # 200  14817,
         # Check that the row is not the first occurrence of an inexact duplicate
         if df_subset.Partner_index.iloc[i] != -1:
             # np.where returns a tuple; tuple's first element is an array containing the index
@@ -273,11 +331,13 @@ def run_check2():
             data2 = open_by_source(fname_dict[fname2])
 
             # Find the inexact duplicate profiles within the data files
-            prof1 = get_profile_data(data1, fname1, df_subset.Cruise_number.iloc[row1_ind],
+            prof1 = get_profile_data(data1, fname1, var_name,
+                                     str(df_subset.Cruise_number.iloc[row1_ind]),
                                      df_subset.Time_pd.iloc[row1_ind],
                                      df_subset.Latitude.iloc[row1_ind],
                                      df_subset.Longitude.iloc[row1_ind])
-            prof2 = get_profile_data(data2, fname2, df_subset.Cruise_number.iloc[row2_ind],
+            prof2 = get_profile_data(data2, fname2, var_name,
+                                     str(df_subset.Cruise_number.iloc[row2_ind]),
                                      df_subset.Time_pd.iloc[row2_ind],
                                      df_subset.Latitude.iloc[row2_ind],
                                      df_subset.Longitude.iloc[row2_ind])
@@ -326,14 +386,19 @@ def run_check2():
     df_out.iloc[:, 11] = df_out.iloc[:, 11].astype(bool)
 
     # Export file
-    df_out_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data_extracts\\' \
-                  'duplicates_flagged\\ALL_Profiles_Oxy_1991_2020_ie_001ll_check2.csv'
+    df_out_name = output_dir + 'ALL_Profiles_{}_1991_2020_ie_001ll_check2.csv'.format(
+        var_name)
+
     df_out.to_csv(df_out_name, index=False)
 
     return
 
 
-run_check2()
+output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                'profile_data_tables\\duplicates_flagged\\'
+variable_name = 'Temp'  # Oxy Sal
+mydict = get_filenames_dict(variable_name)
+run_check2(variable_name, output_folder)
 
 # f = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
 #     'SHuntington\\WP_unique_CTD_forHana\\2018-106-0001.ctd.nc'

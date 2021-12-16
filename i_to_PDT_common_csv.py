@@ -397,11 +397,13 @@ nodc_to_pdt(argo_files, sourcetype="noCAD_PFL", var='Oxy',
 ###################################
 # COMBINE ALL PROFILE DATA TABLES
 
-def combine_all_pdt():
+
+def combine_all_pdt(var_name):
     # extract_folder = '/home/hourstonh/Documents/climatology/data_extracts/'
     extract_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\' \
-                     'data_extracts\\'
-    extracts = glob.glob(extract_folder + '*.csv', recursive=False)
+                     'data\\profile_data_tables\\'
+    extracts = glob.glob(extract_folder + '*{}*.csv'.format(var_name), recursive=False)
+    print(len(extracts))
     extracts.sort()
 
     colnames = ["Source_data_file_name", "Institute", "Cruise_number",
@@ -411,6 +413,7 @@ def combine_all_pdt():
     df_all = pd.DataFrame(columns=colnames)
 
     for fi in extracts:
+        print(basename(fi))
         df_add = pd.read_csv(fi)
         df_all = pd.concat([df_all, df_add], ignore_index=True)
 
@@ -420,8 +423,13 @@ def combine_all_pdt():
     df_all['Quality_control_flag'] = df_all['Quality_control_flag'].astype(int)
 
     # Write to new csv file for ease
-    df_all_name = 'ALL_Profiles_Oxy_1991_2020.csv'
+    df_all_name = 'ALL_Profiles_{}_1991_2020.csv'.format(var_name)
     df_all.to_csv(extract_folder + df_all_name)
 
     return
 
+
+# Combine all pdt for each variable
+variable_name = 'Sal'  # 'Temp'  # 'Sal'
+
+combine_all_pdt(variable_name)
