@@ -1,6 +1,6 @@
 import glob
 from xarray import open_dataset
-from os.path import basename
+from os.path import basename, join
 import pandas as pd
 import numpy as np
 from tqdm import trange
@@ -64,9 +64,15 @@ def get_ios_wp_profile_data(ncdata, var_name):
         except AttributeError:
             prof = ncdata.DOXYZZ01.data
     elif var_name == 'Temp':
+        # Sea Water Temperature in degrees Celsius
         prof = ncdata.TEMPS901.data
     elif var_name == 'Sal':
-        prof = ncdata.PSALZZ01.data
+        try:
+            # Sea Water Practical Salinity in PSS-78
+            prof = ncdata.PSALST01.data
+        except AttributeError:
+            # Sea water salinity in PPT
+            prof = ncdata.SSALST01.data
     return prof
 
 
@@ -161,13 +167,11 @@ def get_profile_data(data, filename, var_name, cruise_number=None, time=None,
     return prof
 
 
-def prep_pdt(var_name):
+def prep_pdt(pdt_dir, var_name):
     # Prepare the profile data table for inexact duplicate checking against raw profiles
     # Take full data file not the subs (subset) version
-    df_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-              'profile_data_tables\\duplicates_flagged\\' \
-              'ALL_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
-                    var_name)
+    df_name = join(pdt_dir, 'ALL_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
+                   var_name))
 
     df_pdt = pd.read_csv(df_name)
 
@@ -209,14 +213,22 @@ def get_filenames_dict(var_name):
     # MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
     #            'meds_data_extracts\\bo_extracts\\'
 
-    IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
-    ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
-                  'SHuntington\\'
-    WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
-                    'WOD_July_nonCDN_extracts\\'
-    WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
-                  'WOD_July_CDN_nonIOS_extracts\\'
-    MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
+    # IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
+    # ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
+    #               'SHuntington\\'
+    # WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
+    #                 'WOD_July_nonCDN_extracts\\'
+    # WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
+    #               'WOD_July_CDN_nonIOS_extracts\\'
+    # MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
+
+    IOS_dir = '/home/hourstonh/Documents/climatology/data/raw/IOS_CIOOS/'
+    ios_wp_path = '/home/hourstonh/Documents/climatology/data/raw/SHuntington/'
+    WOD_nocad_dir = '/home/hourstonh/Documents/climatology/data/raw/WOD_extracts/' \
+                    'WOD_July_extracts/'
+    WOD_cad_dir = '/home/hourstonh/Documents/climatology/data/raw/WOD_extracts/' \
+                  'WOD_July_CDN_nonIOS_extracts/'
+    MEDS_dir = '/home/hourstonh/Documents/climatology/data/raw/meds_data_extracts/'
 
     # Search files
     IOS_files = glob.glob(IOS_dir + 'IOS_BOT_Profiles_{}*.nc'.format(var_name),
@@ -229,7 +241,8 @@ def get_filenames_dict(var_name):
     # Get bot files
     ios_wp_files = glob.glob(ios_wp_path + '*.bot.nc', recursive=False)
     # Get ctd files
-    ios_wp_files += glob.glob(ios_wp_path + 'WP_unique_CTD_forHana\\*.ctd.nc', recursive=False)
+    ios_wp_files += glob.glob(join(ios_wp_path, 'WP_unique_CTD_forHana', '*.ctd.nc'),
+                              recursive=False)
 
     print('Number of IOS WP files: {}'.format(len(ios_wp_files)))
 
@@ -285,7 +298,7 @@ def run_check2(var_name, output_dir):
     fname_dict = get_filenames_dict(var_name)
 
     # Dataframe containing the partner indices
-    df = prep_pdt(var_name)
+    df = prep_pdt(output_dir, var_name)
 
     # Things to check:
     # mission_id (cruise number), instrument, time, latitude, longitude
@@ -394,10 +407,13 @@ def run_check2(var_name, output_dir):
     return
 
 
-output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-                'profile_data_tables\\duplicates_flagged\\'
-variable_name = 'Temp'  # Oxy Sal
-mydict = get_filenames_dict(variable_name)
+# output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#                 'profile_data_tables\\duplicates_flagged\\'
+output_folder = '/home/hourstonh/Documents/climatology/data/profile_data_tables/' \
+                'duplicates_flagged/'
+
+variable_name = 'Sal'  # Oxy Sal
+# mydict = get_filenames_dict(variable_name)
 run_check2(variable_name, output_folder)
 
 # f = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
