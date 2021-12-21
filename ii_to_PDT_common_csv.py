@@ -171,11 +171,11 @@ def nodc_to_pdt(nodc_files, sourcetype, var, output_folder):
             inst = 'PFL'
         elif 'DRB' in f:
             inst = 'DRB'  # Drifting buoy
-        elif inst == 'GLD':
+        elif 'GLD' in f:
             inst = 'GLD'  # Glider
 
-        nodc_nocad_instrument_array = np.repeat(inst,
-                                                len(nodc_nocad_data.casts.data))
+        nodc_nocad_instrument_array = np.repeat(
+            inst, len(nodc_nocad_data.casts.data))
 
         # Convert time data to time string type
         nodc_nocad_timestring = pd.to_datetime(
@@ -213,7 +213,7 @@ def nodc_to_pdt(nodc_files, sourcetype, var, output_folder):
     nodc_name = 'NODC_{}_Profiles_{}_1991_2020.csv'.format(sourcetype, var)
     nodc_df.to_csv(output_folder + nodc_name)
 
-    return
+    return nodc_name
 
 
 def meds_to_pdt(csvfiles, var):
@@ -366,8 +366,10 @@ def gather_raw_data(var, output_folder):
     ios_wp_name = output_folder + 'IOS_WP_Profiles_{}_1991_2020_pdt.csv'.format(var)
     ios_wp_out_df.to_csv(ios_wp_name, index=False)
 
-    nodc_to_pdt(nodc_nocad_files, sourcetype='noCAD', var=var)
-    nodc_to_pdt(nodc_cad_files, sourcetype='CAD', var=var)
+    nodc_nocad_name = nodc_to_pdt(nodc_nocad_files, sourcetype='noCAD', var=var,
+                                  output_folder=output_folder)
+    nodc_cad_name = nodc_to_pdt(nodc_cad_files, sourcetype='CAD', var=var,
+                                output_folder=output_folder)
 
     meds_out_df = meds_to_pdt(meds_files, var=var)
     meds_csv_name = output_folder + 'MEDS_Profiles_{}_1991_1995_pdt.csv'.format(var)
@@ -378,12 +380,31 @@ def gather_raw_data(var, output_folder):
 
 outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
          'profile_data_tables\\'
+
+# Run the program
 gather_raw_data('Temp', outdir)
 gather_raw_data('Sal', outdir)
 
+# -----------------------------------------------------------------------------
+variable_name = 'Sal'
+# Redo the program on NODC cdn data only since the glider data got messed up :)
+
+# NODC WODSelect files, Canadian non-IOS
+nodc_cad_path = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                'raw\\WOD_July_CDN_nonIOS_extracts\\'
+# nodc_cad_path = '/home/hourstonh/Documents/climatology/data/WOD_extracts/' \
+#                 'WOD_July_CDN_nonIOS_extracts/'
+nodc_cad_files = glob.glob(nodc_cad_path + '{}*.nc'.format(variable_name),
+                           recursive=False)
+nodc_cad_files.sort()
+print('Number of NODC cad files', len(nodc_cad_files))
+
+nodc_to_pdt(nodc_cad_files, 'CAD', variable_name, outdir)
+
+# -------------------------------------------------------------------------------
 # Second version of oxygen data that includes Argo oxygen sensor data
-argo_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-           'profile_data_tables\\Argo\\'
+# argo_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#            'profile_data_tables\\Argo\\'
 
 indir = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\' \
         'data\\source_format\\WOD_extracts\\' \
@@ -391,10 +412,10 @@ indir = 'C:\\Users\HourstonH\\Documents\\NEP_climatology\\' \
 
 argo_files = glob.glob(indir + 'Oxy*PFL.nc')
 
-nodc_to_pdt(argo_files, sourcetype="noCAD_PFL", var='Oxy',
-            output_folder=argo_dir)
+# nodc_to_pdt(argo_files, sourcetype="noCAD_PFL", var='Oxy',
+#             output_folder=argo_dir)
 
-###################################
+# -------------------------------------------------------------------------------------
 # COMBINE ALL PROFILE DATA TABLES
 
 
@@ -430,6 +451,6 @@ def combine_all_pdt(var_name):
 
 
 # Combine all pdt for each variable
-variable_name = 'Sal'  # 'Temp'  # 'Sal'
+variable_name = 'Temp'  # 'Temp'  # 'Sal'
 
 combine_all_pdt(variable_name)

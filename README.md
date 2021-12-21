@@ -5,8 +5,7 @@ For treating data for NEP ocean climatology update
 ## Requirements:
 * Python >= 3.7
 * Unix-like environment or Windows environment
-  * Windows requires Admin privileges to use
-
+  
 ## Installation
 To install the project requirements in a conda virtual environment (my_venv): \
 `conda activate my_venv` \
@@ -15,8 +14,13 @@ To install the project requirements in a conda virtual environment (my_venv): \
 
 Install basemap: follow the instructions at https://matplotlib.org/basemap/users/index.html (or install easily with Pycharm if using)
 
-Install DIVAnd.py: https://github.com/gher-ulg/DIVAnd.py \
-(I was able to install and use this on a Windows computer with no issues)
+Install Rtools: https://cran.r-project.org/bin/windows/Rtools/rtools40.html
+
+Install Julia: https://julialang.org/downloads/
+
+Install DIVAnd in Julia: \
+`using Pkg` \
+`Pkg.add("DIVAnd")`
 
 ## Miscellaneous links
 * CIOOS Pacific search by organization: https://catalogue.cioospacific.ca/organization

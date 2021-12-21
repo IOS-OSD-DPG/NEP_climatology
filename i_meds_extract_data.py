@@ -34,11 +34,11 @@ def meds_extract(df, outdir, instrument, var):
     
     # List the column indices of the names of important attributes
     # The value of these attributes is in the row below the name (ind + 1)
-    ind_dtp = 7 #Data_Type column index
-    ind_npr = 24 #No_Prof column index; number of variables profiled
+    ind_dtp = 7  #Data_Type column index
+    ind_npr = 24  #No_Prof column index; number of variables profiled
     
     # Row indices: number of rows below the "MKey" row section header
-    ind_ptp = 3 #Prof_Type; its values start three rows below the "MKey" row in the third column
+    ind_ptp = 3  #Prof_Type; its values start three rows below the "MKey" row in the third column
     
     # Flag to indicate when to get start time for file name
     startflag = 0
@@ -48,7 +48,7 @@ def meds_extract(df, outdir, instrument, var):
         # Check for cruise header that begins each section of the MEDS csv file
         # And check that r is not the index of the last row in the dataframe
         if df.iloc[r, 0] == 'MKey' and r < len(df) - 1:
-            # Get time
+            # Get year, month, day, time
             y, m, d, t = [df.iloc[r + 1, 3], df.iloc[r + 1, 4], df.iloc[r + 1, 5], df.iloc[r + 1, 6]]
             # Get lat/lon
             lat, lon = [df.iloc[r + 1, 12], df.iloc[r + 1, 13]]
@@ -118,7 +118,7 @@ def meds_extract_v2(df, outdir, instrument, var):
     # The value of these attributes is in the row below the name (ind + 1)
     ind_dtp = 7  # Data_Type column index
     ind_npr = 24  # No_Prof column index; number of variables profiled
-    ind_ptr = 11 # Profile_Type_r; value is name of variable profiled (e.g., DOXY)
+    ind_ptr = 11  # Profile_Type_r; value is name of variable profiled (e.g., DOXY)
 
     # Row indices: number of rows below the "MKey" row section header
     ind_ptp = 3  # Prof_Type; its values start three rows below the "MKey" row in the third column

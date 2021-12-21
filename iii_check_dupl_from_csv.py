@@ -28,24 +28,24 @@ print(df_all.shape)
 df_all.drop(columns=['Unnamed: 0'], inplace=True)
 
 ###############################################
-# Check for NaN values
-nan_ind = np.where(pd.isna(df_all.Date_string))
-np.where(pd.isna(df_all))
-# These are equal, so only these rows contain NaNs
-
-print(df_all.loc[nan_ind, ('Latitude', 'Longitude')])
-
-# Check MEDS file for NaN times
-fmeds = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\' \
-        'bo_extracts\\MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
-dmeds = pd.read_csv(fmeds)
-
-dmeds['Hour'] = dmeds.Time.astype(str).apply(lambda x: ('000' + x)[-4:][:-2])
-dmeds['Minute'] = dmeds.Time.astype(str).apply(lambda x: ('000' + x)[-4:][-2:])
-
-dmeds['Timestring'] = pd.to_datetime(
-    dmeds[['Year', 'Month', 'Day', 'Hour', 'Minute']]).dt.strftime(
-    '%Y%m%d%H%M%S')
+# # Check for NaN values
+# nan_ind = np.where(pd.isna(df_all.Date_string))
+# np.where(pd.isna(df_all))
+# # These are equal, so only these rows contain NaNs
+#
+# print(df_all.loc[nan_ind, ('Latitude', 'Longitude')])
+#
+# # Check MEDS file for NaN times
+# fmeds = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\meds_data_extracts\\' \
+#         'bo_extracts\\MEDS_19940804_19930816_BO_DOXY_profiles_source.csv'
+# dmeds = pd.read_csv(fmeds)
+#
+# dmeds['Hour'] = dmeds.Time.astype(str).apply(lambda x: ('000' + x)[-4:][:-2])
+# dmeds['Minute'] = dmeds.Time.astype(str).apply(lambda x: ('000' + x)[-4:][-2:])
+#
+# dmeds['Timestring'] = pd.to_datetime(
+#     dmeds[['Year', 'Month', 'Day', 'Hour', 'Minute']]).dt.strftime(
+#     '%Y%m%d%H%M%S')
 
 ############################################
 # Find duplicates
@@ -66,13 +66,35 @@ edf_name = duplicate_folder + os.path.basename(infile).replace('.csv', '_edf.csv
 
 df_all.to_csv(edf_name)
 
+# ------------------------------------------------------------------------------
 # How to specify to keep CTD data over BOT data regardless of order in the df?
 # Sort df by instrument type before running duplicated(); sort reverse order to
 # have CTD before BOT
 # Check for exact duplicates between CTD and bottle data
-df_all['CTD_BOT_duplicate_row'] = df_all.sort_values(
-    by=['Instrument_type'], ascending=False).duplicated(
-    subset=['Date_string', 'Latitude', 'Longitude'])
+
+# df_all['CTD_BOT_duplicate_row'] = df_all.sort_values(
+#     by=['Instrument_type'], ascending=False).duplicated(
+#     subset=['Date_string', 'Latitude', 'Longitude'])
+
+# Alternative method attempt:
+df_all['CTD_BOT_duplicate_row'] = np.repeat(False, len(df_all))
+# for i in trange(len(df_all)):
+#     if df_all.Instrument_type == 'BOT':
+#         bot_row_info = df_all.loc[i, ['Date_string', 'Latitude', 'Longitude']]
+#         for j in range(len(df_all)):
+#             # Check all the other rows
+#             row_info = df_all.loc[j, ['Date_string', 'Latitude', 'Longitude']]
+#             if df_all.loc[j, 'Instrument_type'] == 'CTD' and bot_row_info == row_info:
+#                 df_all.loc[i, 'CTD_BOT_duplicate_row'] = True
+
+for i in trange(len(df_all)):
+    if df_all.loc[i, 'Instrument_type'] == 'BOT':
+        mask = (df_all.loc[:, 'Instrument_type'] == 'CTD') & \
+               (df_all.loc[:, 'Date_string'] == df_all.loc[i, 'Date_string']) & \
+               (df_all.loc[:, 'Latitude'] == df_all.loc[i, 'Latitude']) & \
+               (df_all.loc[:, 'Longitude'] == df_all.loc[i, 'Longitude'])
+        if len(mask) > 0:
+            df_all.loc[i, 'CTD_BOT_duplicate_row'] = True
 
 # Exclude exact duplicates from previous step by subsetting by the negation of
 # Exact_duplicate_row
@@ -84,7 +106,8 @@ print(len(df_all))
 print(len(df_all.iloc[df_all['Exact_duplicate_row'].values]))
 print(len(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values]))
 
-print(np.unique(df_all.iloc[df_all['CTD_BOT_duplicate_row'].values].loc[:, 'Instrument_type']))
+# Instrument types of rows that were flagged as a CTD-bottle duplicate - should be bot??
+print(np.unique(df_all.loc[df_all['CTD_BOT_duplicate_row'].values, 'Instrument_type']))
 
 print(np.unique(df_all.loc[:, 'Instrument_type']))
 
@@ -208,6 +231,10 @@ def pdt_inexact_dupl(df):
 #               'profile_data_tables\\duplicates_flagged\\' \
 #               'ALL_Profiles_Oxy_1991_2020_cb_edf.csv'
 
+
+duplicate_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                   'profile_data_tables\\duplicates_flagged\\'
+
 df_all = pd.read_csv(cb_edf_name)
 
 df_out = pdt_inexact_dupl(df_all)
@@ -218,5 +245,18 @@ df_all_out_name = duplicate_folder + '{}_Profiles_{}_1991_2020_ie_001ll_pi.csv'.
     which, variable_name)
 
 df_out.to_csv(df_all_out_name)
+
+for varname in ['Temp', 'Sal']:
+    cb_edf_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                  'profile_data_tables\\duplicates_flagged\\' \
+                  'ALL_Profiles_{}_1991_2020_cb_edf.csv'.format(varname)
+    df_all = pd.read_csv(cb_edf_name)
+
+    df_out = pdt_inexact_dupl(df_all)
+
+    which = 'ALL'  # 'PFL'  # ALL
+
+    df_all_out_name = duplicate_folder + '{}_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
+        which, varname)
 
 ##################################

@@ -47,7 +47,10 @@ def get_ios_profile_data(ncdata, cruise_number, time, lat, lon, var_name):
     elif var_name == 'Temp':
         prof = ncdata.TEMPS901.data[prof_subsetter]
     elif var_name == 'Sal':
-        prof = ncdata.PSALST01.data[prof_subsetter]
+        try:
+            prof = ncdata.PSALST01.data[prof_subsetter]
+        except AttributeError:
+            prof = ncdata.SSALST01.data[prof_subsetter]
 
     # Close dataset
     ncdata.close()
@@ -213,22 +216,22 @@ def get_filenames_dict(var_name):
     # MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
     #            'meds_data_extracts\\bo_extracts\\'
 
-    # IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
-    # ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
-    #               'SHuntington\\'
-    # WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
-    #                 'WOD_July_nonCDN_extracts\\'
-    # WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
-    #               'WOD_July_CDN_nonIOS_extracts\\'
-    # MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
+    IOS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
+    ios_wp_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
+                  'SHuntington\\'
+    WOD_nocad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
+                    'WOD_July_nonCDN_extracts\\'
+    WOD_cad_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\' \
+                  'WOD_July_CDN_nonIOS_extracts\\'
+    MEDS_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\raw\\'
 
-    IOS_dir = '/home/hourstonh/Documents/climatology/data/raw/IOS_CIOOS/'
-    ios_wp_path = '/home/hourstonh/Documents/climatology/data/raw/SHuntington/'
-    WOD_nocad_dir = '/home/hourstonh/Documents/climatology/data/raw/WOD_extracts/' \
-                    'WOD_July_extracts/'
-    WOD_cad_dir = '/home/hourstonh/Documents/climatology/data/raw/WOD_extracts/' \
-                  'WOD_July_CDN_nonIOS_extracts/'
-    MEDS_dir = '/home/hourstonh/Documents/climatology/data/raw/meds_data_extracts/'
+    # IOS_dir = '/home/hourstonh/Documents/climatology/data/raw/IOS_CIOOS/'
+    # ios_wp_path = '/home/hourstonh/Documents/climatology/data/raw/SHuntington/'
+    # WOD_nocad_dir = '/home/hourstonh/Documents/climatology/data/raw/WOD_extracts/' \
+    #                 'WOD_July_extracts/'
+    # WOD_cad_dir = '/home/hourstonh/Documents/climatology/data/raw/WOD_extracts/' \
+    #               'WOD_July_CDN_nonIOS_extracts/'
+    # MEDS_dir = '/home/hourstonh/Documents/climatology/data/raw/meds_data_extracts/'
 
     # Search files
     IOS_files = glob.glob(IOS_dir + 'IOS_BOT_Profiles_{}*.nc'.format(var_name),
@@ -407,14 +410,16 @@ def run_check2(var_name, output_dir):
     return
 
 
-# output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-#                 'profile_data_tables\\duplicates_flagged\\'
-output_folder = '/home/hourstonh/Documents/climatology/data/profile_data_tables/' \
-                'duplicates_flagged/'
+output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+                'profile_data_tables\\duplicates_flagged\\'
+# output_folder = '/home/hourstonh/Documents/climatology/data/profile_data_tables/' \
+#                 'duplicates_flagged/'
 
 variable_name = 'Sal'  # Oxy Sal
 # mydict = get_filenames_dict(variable_name)
-run_check2(variable_name, output_folder)
+
+for var in ['Temp', 'Sal']:
+    run_check2(var, output_folder)
 
 # f = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\source_format\\' \
 #     'SHuntington\\WP_unique_CTD_forHana\\2018-106-0001.ctd.nc'

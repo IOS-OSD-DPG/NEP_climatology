@@ -2,6 +2,11 @@
 # clear all
 # os.system("clear")
 
+# author: Lu Guan
+# Plot triangle data, project triangle data to regular grid for saving as TIFF file,
+# and save regular gridded data as a TIFF file
+# Works for ODV outputs and DIVAnd outputs
+
 # -------------------  import packages ------------------------------------------------------------
 
 # import sys
@@ -20,6 +25,7 @@ from clim_helpers import szn_str2int
 import rasterio
 # import pyproj
 from rasterio.transform import Affine
+from xarray import open_dataset
 
 
 # -----------------------------Read and reformat climatology data -------------------------
@@ -104,6 +110,13 @@ def read_climatologies(file_path, output_folder, season):
 
 
 def read_climatologies_v2(tri_dir, clim_data_file, season):
+    """
+    author: Hana Hourston
+    :param tri_dir: folder containing .ngh and .tri files for unstructured triangle grid
+    :param clim_data_file: climatology data file; .txt or .nc
+    :param season: "JFM" or "AMJ" or "JAS" or "OND"
+    :return: dictionary of triangle grid data
+    """
     grid_filename = os.path.join(tri_dir, 'nep35_reord_latlon_wgeo.ngh')
     tri_filename = os.path.join(tri_dir, 'nep35_reord.tri')
 
@@ -134,6 +147,10 @@ def read_climatologies_v2(tri_dir, clim_data_file, season):
     elif clim_data_file.endswith('.npy'):
         clim_array = np.load(clim_data_file)
         var_data = clim_array[1:]
+    elif clim_data_file.endswith('.nc'):
+        # For DIVAnd climatology files which are netCDF
+        clim_ds = open_dataset(clim_data_file)
+        var_data = clim_ds.SL_value_30yr_avg.data
 
     data_dict['var_data'] = var_data
 
@@ -214,9 +231,9 @@ def plot_clim_triangle(data_dict, file_path, left_lon, right_lon, bot_lat, top_l
 def plot_clim_triangle_v2(tri_dir, clim_data_file, left_lon, right_lon, bot_lat, top_lat,
                           output_dir, var_name, var_units, var_cmap, season, depth):
     """
-    Need to specify file type of clim_data_file...
+    author: Hana Hourston
     :param tri_dir: directory containing 'nep35_reord_latlon_wgeo.ngh' and 'nep35_reord.tri'
-    :param clim_data_file: txt file containing climatology values at each trigrid node
+    :param clim_data_file: txt or nc file containing climatology values at each trigrid node
     :param left_lon: plotting parameter
     :param right_lon: plotting parameter
     :param bot_lat: plotting parameter
@@ -233,25 +250,35 @@ def plot_clim_triangle_v2(tri_dir, clim_data_file, left_lon, right_lon, bot_lat,
     grid_fullpath = os.path.join(tri_dir, 'nep35_reord_latlon_wgeo.ngh')
     tri_fullpath = os.path.join(tri_dir, 'nep35_reord.tri')
 
-    # Read in grid data
+    # Read in grid data .ngh
     grid_ds = np.genfromtxt(grid_fullpath, dtype="i8,f8,f8, i4, f8, i4, i4, i4, i4, i4, i4, i4",
                             names=['node', 'lon', 'lat', 'type', 'depth',
                                    's1', 's2', 's3', 's4', 's5', 's6'],
                             delimiter="", skip_header=3)
 
-    # Read in triangle data
+    # Read in triangle data .tri
     tri_ds = np.genfromtxt(
         tri_fullpath, skip_header=0, skip_footer=0, usecols=(1, 2, 3)) - 1
 
     tri = mtri.Triangulation(grid_ds['lon'], grid_ds['lat'],
                              tri_ds)  # attributes: .mask, .triangles, .edges, .neighbors
 
-    triangles = tri.triangles
+    triangles = tri.triangles  # From grid .ngh file
 
     # Open the climatology data file (Oxygen, Temperature or Salinity)
-    clim_df = pd.read_csv(clim_data_file, sep="\t")
-    var_data = np.array(clim_df["SL_value_30yr_avg @ Season={}.00".format(szn_str2int(season))])
+    if clim_data_file.endswith('.txt'):
+        clim_df = pd.read_csv(clim_data_file, sep="\t")
+        var_data = np.array(clim_df["SL_value_30yr_avg @ Season={}.00".format(
+            szn_str2int(season))])
+    elif clim_data_file.endswith('.npy'):
+        clim_array = np.load(clim_data_file)
+        var_data = clim_array[1:]
+    elif clim_data_file.endswith('.nc'):
+        # For DIVAnd climatology files which are netCDF
+        clim_ds = open_dataset(clim_data_file)
+        var_data = clim_ds.SL_value_30yr_avg.data
 
+    # Create Basemap instance
     m = Basemap(llcrnrlon=left_lon, llcrnrlat=bot_lat,
                 urcrnrlon=right_lon, urcrnrlat=top_lat,
                 projection='lcc',  # width=40000, height=40000, #lambert conformal project
@@ -389,6 +416,22 @@ def triangle_to_regular(data_dict, file_path, left_lon, right_lon, bot_lat, top_
 def triangle_to_regular_v2(data_dict, tri_dir, output_dir, var_name, depth,
                            season, left_lon, right_lon, bot_lat, top_lat,
                            var_units, var_cmap):
+    """
+    author: Hana Hourston
+    :param data_dict: data dictionary
+    :param tri_dir: triangle files directory (contains nep35_reord.tri)
+    :param output_dir: folder to output files into
+    :param var_name: "Oxy" or "Temp" or "Sal"
+    :param depth: standard depth in integer type
+    :param season: one of ["JFM", "AMJ", "JAS", "OND"]
+    :param left_lon: plotting parameter
+    :param right_lon: plotting parameter
+    :param bot_lat: plotting parameter
+    :param top_lat: plotting parameter
+    :param var_units: Units of variable to use for plot
+    :param var_cmap: matplotlib colourmap to use for plotting the selected variable
+    :return: data dictionary with data in regular projection
+    """
     tri_filename = os.path.join(tri_dir, 'nep35_reord.tri')
     tri_ds = np.genfromtxt(
         tri_filename, skip_header=0, skip_footer=0, usecols=(1, 2, 3)) - 1
@@ -512,13 +555,14 @@ def convert_to_tif(data_dict, file_path, output_folder, season, depth):
 
 def convert_to_tif_v2(data_dict, output_dir, var_name, depth, season):
     """
-    Convert txt to tif
+    author: Hana Hourston
+    Convert data dictionary to tif
     :param data_dict: dictionary
-    :param output_dir:
-    :param var_name:
-    :param depth:
-    :param season:
-    :return:
+    :param output_dir: string
+    :param var_name: "Oxy" or "Temp" or "Sal"
+    :param depth: int type
+    :param season: one of ["JFM", "AMJ", "JAS", "OND"]
+    :return: name of tiff file that is saved
     """
 
     x_lon_r = data_dict['x_lon_r']
@@ -576,9 +620,8 @@ def EEZ_clip(file_path, output_folder, season, depth):
         dest.write(out_image)
 
 
-EEZ_clip(file_path='/home/guanl/Desktop/MSP/Climatology', output_folder='T_sum',
-         season='sum', depth='0')
-
+# EEZ_clip(file_path='/home/guanl/Desktop/MSP/Climatology', output_folder='T_sum',
+#          season='sum', depth='0')
 
 # --------------------------------------------------------------------------------
 # ----------------------------Set parameters--------------------------------------
@@ -647,14 +690,15 @@ for sa in season_abbrevs[:]:
     tif_filename = convert_to_tif_v2(dat_dict_new, output_path, variable_name,
                                      standard_depth, sa)
 
-# ---------------------------------------------------------------------------
-# ------------------------See what this .npy file is like--------------------
+# ------------------------End of Hana's modifications----------------------------------
+# -------------------------------------------------------------------------------------
+# ------------------------See what this .npy file is like------------------------------
 npy_filename = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\" \
                "nep35_tem_spr_extrap2_reformat.npy"
 npy_data = np.load(npy_filename)
 print(npy_data.shape)
 # Use np.save("filename", data_array) to save data to a .npy file
-# ----------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------
 
 # Lu's code...
 

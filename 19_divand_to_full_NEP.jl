@@ -16,7 +16,7 @@ function len_from_GCV()
 end
 
 
-function divand_to_full_NEP(data_filename, output_dir, mask_filename, corlen_filename,
+function divand_to_full_NEP(data_filename, output_dir, mask_filename,
                             var_name, depth, szn, pm, pn)
     # Prepare inputs for the analysis
 
@@ -35,16 +35,6 @@ function divand_to_full_NEP(data_filename, output_dir, mask_filename, corlen_fil
     vanom = vobs .- vmean
 
     println("Computed observation anomalies")
-
-    # ------------------------correlation length--------------------------------
-    # Calculate from fithorzlen
-    fitcor_df = CSV.File(corlen_filename) |> DataFrame
-    
-    # Average the top 100m-averaged correlation length values over 1991-2020
-    # for the input season
-    fitcor_lenxy = mean(fitcor_df[!, szn])
-
-    println(string("fithorzlen mean correlation length:", fitcor_lenxy))
 	
     # --------------------------------mask--------------------------------------
     
@@ -61,10 +51,15 @@ function divand_to_full_NEP(data_filename, output_dir, mask_filename, corlen_fil
 
     close(mask_ds)
 
-    # -------------------------Set some more parameters---------------------------
+    # -------------------------Generalized cross-validation--------------------------
+
+    # Set the first guesses for lenx and leny as 1/10 the domain of the observations
+    lenx_guess = 500e3 # (maximum(xobs) - minimum(xobs))  # /10
+    leny_guess = 500e3 # (maximum(yobs) - minimum(yobs))  # /10
+    println("lenx and leny guesses for GCV: ", lenx_guess, " ", leny_guess)
 
     signal_to_noise_ratio = 50.  # Default from Lu ODV session
-    epsilon2_guess = 1/signal_to_noise_ratio  # 1.
+    epsilon2 = 1/signal_to_noise_ratio  # 1.
 
     # Choose number of testing points around the current value of L (corlen)
     nl = 1
@@ -76,13 +71,29 @@ function divand_to_full_NEP(data_filename, output_dir, mask_filename, corlen_fil
     # 1: full CV; 2: sampled CV; 3: GCV; 0: automatic choice between the three
     method = 3
 
+    # Run generalized cross-validation
+    println("Running GCV...")
+    bestfactorl,bestfactore,cvval,cvvalues,x2Ddata,y2Ddata,cvinter,xi2D,yi2D = DIVAnd_cv(
+        mask, (pm, pn), (Lon2d, Lat2d), (xobs, yobs), vanom, (lenx_guess, leny_guess),
+        epsilon2, nl, ne, method)
+    println("Completed GCV")
+    
+    new_lenx = bestfactorl * lenx
+    new_leny = bestfactorl * leny
+    new_epsilon2 = bestfactore * epsilon2
+
+    lenx = new_lenx
+    leny = new_leny
+    epsilon2 = new_epsilon2
+    println("Final lenx, leny, epsilon2: ", lenx, " ",leny, " ", epsilon2)
+
     # ----------------------------Run the analysis--------------------------------
 
     println("Running analysis...")
 
     try
         va = DIVAndrunfi(mask, (pm, pn), (Lon2d, Lat2d), (xobs, yobs), vanom,
-                         (fitcor_lenxy, fitcor_lenxy), epsilon2_guess)
+                         (lenx, leny), epsilon2)
 
         # Add the output anomaly back to the mean of the observations
         vout = vmean .+ va
@@ -172,5 +183,5 @@ close(pmn_ds)
 # Check if necessary files exist before running analysis
 if isfile(data_file) && isfile(mask_file)
     ncname = divand_to_full_NEP(data_file, output_folder, mask_file,
-        corlen_file, variable_name, standard_depth, season, pm_diva, pn_diva)
+        variable_name, standard_depth, season, pm_diva, pn_diva)
 end

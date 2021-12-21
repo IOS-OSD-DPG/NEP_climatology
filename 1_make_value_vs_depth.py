@@ -139,7 +139,7 @@ def nodc_to_vvd0(ncdata, instrument='BOT', var='Oxygen', counter=0):
     df_out = pd.DataFrame()
 
     profile_number = np.zeros(len(ncdata[var].data), dtype=int)
-    cruise_number = np.repeat('XXXXXXXX', len(ncdata[var].data))
+    cruise_number = np.repeat('XXXXXXXX', len(ncdata[var].data))  #Initialize cruise number
     date_string = np.repeat('YYYYMMDDhhmmss', len(ncdata[var].data))
     latitude = np.repeat(0., len(ncdata[var].data))
     longitude = np.repeat(0., len(ncdata[var].data))
@@ -429,10 +429,10 @@ osd_df.to_csv(osd_df_name, index=False)
 ts_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
          'source_format\\WOD_extracts\\'
 
-# Assemble files
+# Assemble files, include both canadian and non-canadian data
 wod_var = 'Oxy'  # Oxy, Temp, Sal
 osd_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*OSD.nc'.format(wod_var))
-osd_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*OSD.nc'.format(wod_var))
+osd_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*OSD.nc'.format(wod_var))  # empty
 
 ctd_files = glob.glob(ts_dir + 'WOD_July_extracts\\{}*CTD.nc'.format(wod_var))
 ctd_files += glob.glob(ts_dir + 'WOD_July_CDN_nonIOS_extracts\\{}*CTD.nc'.format(wod_var))
@@ -471,7 +471,7 @@ for j in trange(len(inst_list)):
         inst_df = pd.concat([inst_df, df_add])
 
     # Export df to csv file
-    out_name = 'WOD_{}_{}_1991_2020_value_vs_depth_0.csv'.format(inst, wod_var)
+    out_name = 'WOD_{}_{}_1991_2020_value_vs_depth_0_v2.csv'.format(inst, wod_var)
 
     inst_df.to_csv(out_dir + out_name, index=False)
 
