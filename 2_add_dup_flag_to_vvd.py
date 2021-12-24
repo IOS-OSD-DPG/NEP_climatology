@@ -5,6 +5,7 @@ import pandas as pd
 from tqdm import trange
 import glob
 from os.path import basename, join
+import numba as nb
 
 
 def vvd_add_dup_flags(var_name, df_vvd, df_pdt, profs_to_recheck, verbose=False):
@@ -48,6 +49,11 @@ def vvd_add_dup_flags(var_name, df_vvd, df_pdt, profs_to_recheck, verbose=False)
         lat_vvd = df_vvd.loc[unique[i], 'Latitude']
         lon_vvd = df_vvd.loc[unique[i], 'Longitude']
 
+        # Correct mistake in file
+        if instrument_vvd == 'OSD':
+            df_vvd.loc[unique[i], 'Instrument_type'] = 'BOT'
+            instrument_vvd = df_vvd.loc[unique[i], 'Instrument_type']
+
         if verbose:
             print(cruise_vvd, instrument_vvd, time_vvd, lat_vvd, lon_vvd)
 
@@ -85,6 +91,7 @@ def vvd_add_dup_flags(var_name, df_vvd, df_pdt, profs_to_recheck, verbose=False)
                 print('Warning: More than one row match returned from pdt')
                 print('Number of uses per matching profile returned:',
                       df_pdt.loc[indices_pdt, 'Number_of_uses'])
+                # Append to the list of profiles to recheck matching
                 profs_to_recheck.append(
                     (var_name, cruise_vvd, instrument_vvd, time_vvd, lat_vvd, lon_vvd))
                 # Use the profile that hasn't already been used
@@ -160,7 +167,7 @@ def prep_pdt_v2(pdt_fname):
 
 
 # --------------------------------------------------------------------------------------
-for var in ['Temp', 'Sal']:
+for var in ['Sal']:  # 'Temp',  , 'Sal'
     variable_name = var
     # Value vs depth table folder
     vvd_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
@@ -197,6 +204,8 @@ for var in ['Temp', 'Sal']:
     profiles_to_recheck = []
 
     # Iterate through the files
+    # GLD causing issues for both Temp and Sal
+    vvd_list.sort(reverse=True)
     for f in vvd_list[:]:  # 9:
         print(basename(f))
         # Read in csv file into pandas dataframe
@@ -237,13 +246,17 @@ for var in ['Temp', 'Sal']:
 #
 # print(runtime)
 
-# -----------------------------------DOUBLE-CHECK------------------------------------------
+# ---------------------------------------DOUBLE-CHECK-------------------------------------------
+
+variable_name = 'Sal'  # 'Temp'
+
 # Check for exact duplicate rows again to be safe
 vvd_dup_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
               'value_vs_depth\\2_added_dup_flags\\'
 
-vvd_dup_files = glob.glob(vvd_dup_dir + '*{}*.csv'.format(variable_name), recursive=False)
-print(vvd_dup_files)
+vvd_dup_files = glob.glob(vvd_dup_dir + '*{}*value_vs_depth_dup.csv'.format(variable_name),
+                          recursive=False)
+print(len(vvd_dup_files))
 
 # Check all columns except for 'Profile_number'
 cols_to_check = ['Cruise_number', 'Instrument_type', 'Date_string',
@@ -251,20 +264,48 @@ cols_to_check = ['Cruise_number', 'Instrument_type', 'Date_string',
                  'Source_flag', 'Exact_duplicate_flag', 'CTD_BOT_duplicate_flag',
                  'Inexact_duplicate_flag']
 
+exact_cols_to_check = ['Instrument_type', 'Date_string', 'Latitude', 'Longitude', 'Depth_m', 'Value']
+
 vvd_dup_check2_dir = vvd_dup_dir + 'exact_duplicate_double_check\\'
+
+# ----------------------------------------------------------------------------------------------
+# Exploration section -- uncommented code continues below
+# cols_to_check_again = cols_to_check[:9]
+# print(cols_to_check_again[-1])
+#
+# cols_to_check_data = ['Instrument_type', 'Date_string', 'Depth_m', 'Value']
+# cols_to_check5 = ['Instrument_type', 'Date_string', 'Latitude', 'Longitude', 'Depth_m', 'Value']
+#
+# f = vvd_dup_files[12]
+# df = pd.read_csv(f)
+# df['Exact_dup_check2'] = df.duplicated(subset=exact_cols_to_check, keep='first')
+# df['Exact_dup_check3'] = df.duplicated(subset=cols_to_check_again, keep='first')
+# df['Exact_dup_check4'] = df.duplicated(subset=cols_to_check_data, keep='first')
+# df['Exact_dup_check5'] = df.duplicated(subset=cols_to_check5, keep='first')
+#
+# print(len(df.loc[df.Exact_dup_check2 == True, 'Exact_dup_check2']))
+# print(len(df.loc[df.Exact_dup_check3 == True, 'Exact_dup_check3']))
+# print(len(df.loc[df.Exact_dup_check4 == True, 'Exact_dup_check4']))
+# print(len(df.loc[df.Exact_dup_check5 == True, 'Exact_dup_check5']))
+
+# # Compare against existing columns
+# print(len(df.loc[df.Exact_duplicate_flag == True, 'Exact_duplicate_flag']))
+# print(len(df.loc[df.Inexact_duplicate_flag == True, 'Inexact_duplicate_flag']))
+# ---------------------------------------------------------------------------------------------
 
 for f in vvd_dup_files:
     print(basename(f))
     df = pd.read_csv(f)
     # Find the number of duplicate rows in df, if any
     # keep=False to mark all duplicates as True
-    df['Exact_dup_check2'] = df.duplicated(subset=cols_to_check, keep='first')
-
+    df['Exact_dup_check2'] = df.duplicated(subset=exact_cols_to_check, keep='first')
     # Print the number of duplicate rows
     # Do an intersect with df['Exact_duplicate_flag']
     # Or just simply replace the Exact duplicate flag column?
-    subsetter = (df.Exact_dup_check2 == True).values
-    print(len(subsetter))
+    subsetter = np.array(df.Exact_dup_check2)
+    print(len(df.loc[df.Exact_duplicate_flag]))
+    print(len(subsetter[subsetter == True]))
+
     df.loc[subsetter, 'Exact_duplicate_flag'] = True
 
     # Drop temporary column
@@ -274,30 +315,105 @@ for f in vvd_dup_files:
     df.to_csv(vvd_dup_check2_dir + basename(f), index=False)
 
 
+# ---------------------------------------------------------------------------------------------
+# Glider inexact duplicates check
+# Check to see if any profiles in the Value column occur more than once
+# https://stackoverflow.com/questions/57004175/numpy-check-if-1-d-array-is-sub-array-of-another
+
+
+@nb.jit(nopython=True)
+def arrays_equal(a, b):
+    if a.shape != b.shape:
+        return False
+    for ai, bi in zip(a.flat, b.flat):
+        if ai != bi:
+            return False
+    return True
+
+
+gld_files = glob.glob(
+    vvd_dup_dir + 'exact_duplicate_double_check\\WOD_GLD_*_1991_2020_value_vs_depth_dup.csv')
+print(gld_files)
+
+gld_file = gld_files[1]
+
+gld_df = pd.read_csv(gld_file)
+# gld_df['Inexact_duplicate_check2'] = np.repeat(False, len(gld_df))
+
+gld_prof_numbers, gld_prof_indices = np.unique(gld_df.Profile_number, return_index=True)
+print(len(gld_prof_numbers))
+
+gld_df['GLD_Inexact_dup_check'] = np.repeat(False, len(gld_df))
+
+for k in trange(len(gld_prof_numbers)):  # len(gld_prof_numbers)
+    # date1, lat1, lon1 = gld_df.loc[gld_prof_indices[k],
+    #                                ['Date_string', 'Latitude', 'Longitude']]
+    if k == len(gld_prof_numbers) - 1:
+        prof_end_ind = None
+    else:
+        # End ind is inclusive in pandas
+        prof_end_ind1 = gld_prof_indices[k + 1] - 1
+
+    prof_values1 = np.array(gld_df.loc[gld_prof_indices[k]:prof_end_ind1, 'Value'])
+
+    for m in range(k + 1, len(gld_prof_numbers)):  # len(gld_prof_numbers)
+        if m == len(gld_prof_numbers) - 1:
+            prof_end_ind2 = None
+        else:
+            prof_end_ind2 = gld_prof_indices[m + 1] - 1
+
+        prof_values2 = np.array(gld_df.loc[gld_prof_indices[m]:prof_end_ind2, 'Value'])
+
+        # Check if arrays are equal and if they weren't already caught by the exact duplicate check
+        if arrays_equal(prof_values1, prof_values2) and not gld_df.loc[gld_prof_indices[m], 'Exact_duplicate_flag']:
+            print('Profiles {} and {} have equal values'.format(gld_prof_numbers[k], gld_prof_numbers[m]))
+            print('Profile 1 info', gld_df.loc[gld_prof_indices[k], ['Cruise_number', 'Date_string', 'Latitude', 'Longitude']])
+            print('Profile 2 info', gld_df.loc[gld_prof_indices[m], ['Cruise_number', 'Date_string', 'Latitude', 'Longitude']])
+            gld_df.loc[gld_prof_indices[m]:prof_end_ind2, 'GLD_Inexact_dup_check'] = True
+
+print(len(gld_df.loc[gld_df.GLD_Inexact_dup_check == True, 'GLD_Inexact_dup_check']))
+
+gld_df_outname = vvd_dup_dir + 'exact_duplicate_double_check\\' + basename(
+    gld_file).replace('dup', 'dup_gld')
+
+gld_df.to_csv(gld_df_outname, index=False)
+
 # --------------------------------------TESTING----------------------------------------------
-# # Call the function
-# df_in = pd.read_csv(vvd_list[0])
-# updated_df = vvd_add_dup_flags(df_in, pdt)
+
+# --------------------------------------------------------------------------------------------
+# GLD testing
+
+# @nb.jit(parallel=True)
+# def is_sub_arr_nb(a1, a2, df_mask):
+#     # a1 is the big array, a2 is the possible sub-array
+#     for i in nb.prange(len(a1) - len(a2) + 1):
+#         for j in range(len(a2)):
+#             if a1[i + j] != a2[j]:
+#                 break
+#         else:
+#             # df_mask.loc[i + j, 'Inexact_duplicate_check3'] = True
+#             return True  #, df_mask
+#     return False  #, df_mask
+
+# for k in trange(len(gld_prof_numbers)):
+#     prof_subsetter = np.where(gld_df.Profile_number == gld_prof_numbers[k])[0]
+#     values_subsetter = np.where(gld_df.Profile_number != gld_prof_numbers[k])[0]
+#     prof_values = np.array(gld_df.loc[prof_subsetter, 'Value'])
+#     rest_of_values = np.array(gld_df.loc[values_subsetter, 'Value'])
+#     if is_sub_arr_nb(rest_of_values, prof_values):
+#         gld_df.loc[prof_subsetter, 'Inexact_duplicate_check2'] = True
 #
-# # Check flags
-# print(updated_df[['Exact_duplicate_flag', 'CTD_BOT_duplicate_flag', 'Inexact_duplicate_flag']])
+# print(len(gld_df.loc[gld_df.Inexact_duplicate_check2 == True, 'Inexact_duplicate_check2']))
 #
-# # Remove temporary columns
-# updated_df.drop(columns='Instrument_type')
-# # Export the updated dataframe
-# out_name = vvd_list[0].replace('.', '_flag.')
-# updated_df.to_csv(out_name, index=False)
-#
-# # Approach #2
-# # Try iterating through the separate vvd dfs
-# meds_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\value_vs_depth\\' \
-#             'MEDS_BOT_Oxy_1991_1995_value_vs_depth_0.csv'
-#
-# meds_df = pd.read_csv(meds_file)
-# meds_df['Date_string'] = meds_df['Date_string'].astype(str)
-#
-# # Check to see that the flagging was correct
-# print(max(pdt.loc[:, 'Number_of_rewrites']))
-#
-# # Remove transitory columns
-# # df_vvd.drop(columns='Number_of_rewrites')
+# gld_df['Inexact_duplicate_check3'] = np.repeat(False, len(gld_df))
+
+# for k in trange(len(gld_prof_numbers)):
+#     prof_subsetter = np.where(gld_df.Profile_number == gld_prof_numbers[k])[0]
+#     values_subsetter = np.where(gld_df.Profile_number != gld_prof_numbers[k])[0]
+#     prof_values = np.array(gld_df.loc[prof_subsetter, 'Value'])
+#     rest_of_values = np.array(gld_df.loc[values_subsetter, 'Value'])
+#     if is_sub_arr_nb(rest_of_values, prof_values):
+#         gld_df.loc[prof_subsetter, 'Inexact_duplicate_check3'] = True
+#         break
+
+# print(len(gld_df.loc[gld_df.Inexact_duplicate_check3 == True, 'Inexact_duplicate_check3']))

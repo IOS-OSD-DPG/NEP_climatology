@@ -26,6 +26,7 @@ import rasterio
 # import pyproj
 from rasterio.transform import Affine
 from xarray import open_dataset
+import copy
 
 
 # -----------------------------Read and reformat climatology data -------------------------
@@ -57,6 +58,51 @@ def reformat_array(file_path, season):
     np.savetxt(tem_reformat, array, delimiter=',', newline='\n')
     np.save(tem_reformat, array)
     return array
+
+
+#------------------ Read and plot triangle grid, add mask for each grid depth --------------------
+
+
+def read_triangle_grid(file_path, output_folder=None, season=None):
+    grid_filename = os.path.join(file_path, 'nep35_reord_latlon_wgeo.ngh')
+    tri_filename = os.path.join(file_path, 'nep35_reord.tri')
+
+    data = np.genfromtxt(grid_filename, dtype="i8,f8,f8, i4, f8, i4, i4, i4, i4, i4, i4, i4",
+                         names=['node', 'lon', 'lat', 'type', 'depth',
+                                's1', 's2', 's3', 's4', 's5', 's6'],
+                         delimiter="", skip_header=3)
+
+    tri_data = np.genfromtxt(tri_filename, skip_header=0, skip_footer=0, usecols=(1, 2, 3))-1 #python starts from 0
+    grid_depth = np.array([0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140,
+                           150, 160, 170, 180, 190, 200, 220, 240, 260, 280, 300,
+                           320, 340, 360, 380, 400, 450, 500, 600, 700, 800, 900, 1000, 1200,
+                           1400, 1600, 1800, 2000, 2200, 2400, 2700, 3000, 3500,
+                           4000, 4500, 5000])
+
+    data_dict = dict()
+    data_dict['node_number'] = data['node'] - 1  # use node_number as Key
+    data_dict['depth_in_m'] = data['depth']
+    data_dict['y_lat'] = data['lat']
+    data_dict['x_lon'] = data['lon']
+    data_dict['grid_depth'] = grid_depth
+
+    #write mask index for each grid depth
+    for i in range(0, 52, 1):
+        variable_name = 'mask_' + str(int(abs(grid_depth[i]))) + 'm'
+        temp_depth = copy.deepcopy(data['depth'])
+        temp_depth = np.where(temp_depth < grid_depth[i], 0, 1)
+        data_dict[variable_name] = temp_depth
+
+    # attributes: .mask, .triangles, .edges, .neighbors
+    tri = mtri.Triangulation(data_dict['x_lon'], data_dict['y_lat'], tri_data)
+    #min_circle_ratio = 0.1
+    #mask = TriAnalyzer(tri).get_flat_tri_mask(min_circle_ratio)
+    #tri.set_mask(mask)
+    data_dict['triangles'] = tri.triangles
+    plt.triplot(tri, color='0.7', lw=0.2)  #check grid plot
+    plt.show()
+
+    return data_dict
 
 
 # ------------------ Read and plot climatology on triangle grid------------------------
@@ -139,6 +185,22 @@ def read_climatologies_v2(tri_dir, clim_data_file, season):
     tri = mtri.Triangulation(data_dict['x_lon'], data_dict['y_lat'],
                              tri_ds)  # attributes: .mask, .triangles, .edges, .neighbors
     data_dict['triangles'] = tri.triangles
+
+    # Bathymetry
+    grid_depth = np.array([0, 5, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140,
+                           150, 160, 170, 180, 190, 200, 220, 240, 260, 280, 300,
+                           320, 340, 360, 380, 400, 450, 500, 600, 700, 800, 900, 1000, 1200,
+                           1400, 1600, 1800, 2000, 2200, 2400, 2700, 3000, 3500,
+                           4000, 4500, 5000])
+
+    data_dict['grid_depth'] = grid_depth
+
+    # write mask index for each grid depth
+    for i in range(0, 52, 1):
+        variable_name = 'mask_' + str(int(abs(grid_depth[i]))) + 'm'
+        var_depth = copy.deepcopy(data['depth'])
+        var_depth = np.where(var_depth < grid_depth[i], 0, 1)
+        data_dict[variable_name] = var_depth
 
     if clim_data_file.endswith('.txt'):
         clim_df = pd.read_csv(clim_data_file, sep="\t")
@@ -513,6 +575,7 @@ def triangle_to_regular_v2(data_dict, tri_dir, output_dir, var_name, depth,
     data_dict_new[var_name] = var_r
 
     return data_dict_new
+
 
 # -----------------------------------------------------------------------------------------------------------------------
 # Write interpolated data into geoTiff file

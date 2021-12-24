@@ -328,9 +328,14 @@ def run_check2(var_name, output_dir):
 
             print(fname1, fname2)
 
-            # Retrieve instrument type: Either BOT or CTD
+            # Retrieve instrument type:
             inst1 = df_subset.Instrument_type.iloc[row1_ind]
             inst2 = df_subset.Instrument_type.iloc[row2_ind]
+
+            # Skip to next iteration if instrument is glider
+            if inst1 == 'GLD' and inst2 == 'GLD':
+                print('Profiles are both from GLD -- skipping')
+                continue
 
             # Break out of loop if source file names are not the same
             if fname1 != fname2 and inst1 == inst2:
@@ -415,7 +420,7 @@ output_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 # output_folder = '/home/hourstonh/Documents/climatology/data/profile_data_tables/' \
 #                 'duplicates_flagged/'
 
-variable_name = 'Sal'  # Oxy Sal
+# variable_name = 'Sal'  # Oxy Sal
 # mydict = get_filenames_dict(variable_name)
 
 for var in ['Temp', 'Sal']:

@@ -10,21 +10,23 @@ nan_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
 qc_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
          'value_vs_depth\\5_filtered_for_quality_flag\\'
 
-qc_files = glob.glob(qc_dir + '*.csv')
-print(len(qc_files))
+for var in ['Temp', 'Sal']:
+    qc_files = glob.glob(qc_dir + '*{}*.csv'.format(var))
+    print(len(qc_files))
 
-for f in qc_files:
-    print(basename(f))
-    df = pd.read_csv(f)
-    print('Starting df length:', len(df))
-    # Drop all rows that have df.Value == NaN
-    df.dropna(axis='index', subset=['Depth_m', 'Value'], inplace=True)
-    print('Ending df length:', len(df))
-    # Export df
-    outname = basename(f).replace('qc', 'nan_rm')
-    df.to_csv(nan_dir + outname, index=False)
+    for f in qc_files:
+        print(basename(f))
+        df = pd.read_csv(f)
+        print('Starting df length:', len(df))
+        # Drop all rows that have df.Value == NaN
+        df.dropna(axis='index', subset=['Depth_m', 'Value'], inplace=True)
+        print('Ending df length:', len(df))
+        # Export df
+        outname = basename(f).replace('qc', 'nan_rm')
+        df.to_csv(nan_dir + outname, index=False)
 
 
+# Not doing this step for TS because they're too big
 # Put all nan vvds into one file? (except WOD PFL)
 all_name = 'Oxy_1991_2020_value_vs_depth_nan_rm.csv'
 nan_files = glob.glob(nan_dir + '*.csv')

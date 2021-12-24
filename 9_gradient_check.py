@@ -2,9 +2,11 @@ import pandas as pd
 import numpy as np
 from tqdm import trange
 from clim_helpers import vvd_apply_value_flag
+import glob
+from os.path import basename
 
 
-def vvd_gradient_check(df, grad_df, verbose=False):
+def vvd_gradient_check(df, grad_df, grad_variable, verbose=False):
     # Value vs depth gradient check
     # Check for gradients, inversions and zero sensitivity
     # df: value vs depth dataframe
@@ -53,13 +55,13 @@ def vvd_gradient_check(df, grad_df, verbose=False):
             # If depth <= 400m and gradient < -max, apply one set of criteria
             # If depth > 400m and gradient < -max, apply other set of criteria...
             subsetter_MGV_lt_400 = np.where(
-                (depths <= 400) & (gradients < -grad_df.loc['Oxygen', 'MGV_Z_lt_400m']))[0]
+                (depths <= 400) & (gradients < -grad_df.loc[grad_variable, 'MGV_Z_lt_400m']))[0]
             subsetter_MGV_gt_400 = np.where(
-                (depths > 400) & (gradients < -grad_df.loc['Oxygen', 'MGV_Z_gt_400m']))[0]
+                (depths > 400) & (gradients < -grad_df.loc[grad_variable, 'MGV_Z_gt_400m']))[0]
             subsetter_MIV_lt_400 = np.where(
-                (depths <= 400) & (gradients > grad_df.loc['Oxygen', 'MIV_Z_lt_400m']))[0]
+                (depths <= 400) & (gradients > grad_df.loc[grad_variable, 'MIV_Z_lt_400m']))[0]
             subsetter_MIV_gt_400 = np.where(
-                (depths > 400) & (gradients > grad_df.loc['Oxygen', 'MIV_Z_gt_400m']))[0]
+                (depths > 400) & (gradients > grad_df.loc[grad_variable, 'MIV_Z_gt_400m']))[0]
 
             if verbose:
                 print('Created MGV/MIV subsetters')
@@ -71,12 +73,12 @@ def vvd_gradient_check(df, grad_df, verbose=False):
             subsetter_ZSI_lt_400 = np.where(
                 (depths[1:] <= 400) &
                 (d_gradients < -grad_df.loc[
-                    'Oxygen', 'MGV_Z_lt_400m'] * grad_df.loc['Oxygen', 'ZSI']) &
+                    'Oxygen', 'MGV_Z_lt_400m'] * grad_df.loc[grad_variable, 'ZSI']) &
                 (values[1:] == 0.))[0]
             subsetter_ZSI_gt_400 = np.where(
                 (depths[1:] > 400) &
                 (d_gradients < -grad_df.loc[
-                    'Oxygen', 'MGV_Z_gt_400m'] * grad_df.loc['Oxygen', 'ZSI']) &
+                    'Oxygen', 'MGV_Z_gt_400m'] * grad_df.loc[grad_variable, 'ZSI']) &
                 (values[1:] == 0.))[0]
 
             if verbose:
@@ -104,36 +106,44 @@ def vvd_gradient_check(df, grad_df, verbose=False):
 
 df_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
          'value_vs_depth\\8_range_check\\'
-df_file = 'Oxy_1991_2020_value_vs_depth_rng_check_done.csv'
-# df_file = 'WOD_PFL_Oxy_1991_2020_value_vs_depth_rng_check_done.csv'
-
-df_in = pd.read_csv(df_dir + df_file)
-
-# Read in table of WOD18 maximum gradients and inversions
 grad_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\literature\\' \
             'WOA docs\\wod18_users_manual_tables\\wod18_max_gradient_inversion.csv'
-df_grad = pd.read_csv(grad_file, index_col='Variable')
 
-# Run gradient check
-df_out = vvd_gradient_check(df_in, df_grad)
-
-print('Done')
-
-# Print summary statistics
-print(len(df_out.loc[df_out.Gradient_check_flag == 1, 'Gradient_check_flag']))  # gradient
-print(len(df_out.loc[df_out.Gradient_check_flag == 2, 'Gradient_check_flag']))  # inversion
-print(len(df_out.loc[df_out.Gradient_check_flag == 3, 'Gradient_check_flag']))  # ZSI
-print(len(df_out.loc[df_out.Gradient_check_flag == 4, 'Gradient_check_flag']))  # ZSI and gradient
-print(len(df_out.loc[df_out.Gradient_check_flag == 5, 'Gradient_check_flag']))  # ZSI and inversion
-
-df_outname = df_file.replace('rng_check_done', 'grad_check')
-print(df_outname)
 df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-            'value_vs_depth\\9_gradient_check\\'
+                'value_vs_depth\\9_gradient_check\\'
 
-df_out.to_csv(df_outdir + df_outname, index=False)
+for var, grad_var in zip(['Temp', 'Sal'], ['Temperature', 'Salinity']):
+    print(var, grad_var)
+    # df_file = 'Oxy_1991_2020_value_vs_depth_rng_check_done.csv'
+    # df_file = 'WOD_PFL_Oxy_1991_2020_value_vs_depth_rng_check_done.csv'
+    vvd_files = glob.glob(df_dir + '*{}*done.csv'.format(var))
+    print(len(vvd_files))
 
-df_out2 = vvd_apply_value_flag(df_out, 'Gradient_check_flag')
+    for df_file in vvd_files:
+        print(basename(df_file))
+        df_in = pd.read_csv(df_dir + df_file)
 
-df_out2_name = df_outname.replace('grad_check', 'grad_check_done')
-df_out2.to_csv(df_outdir + df_out2_name, index=False)
+        # Read in table of WOD18 maximum gradients and inversions
+        df_grad = pd.read_csv(grad_file, index_col='Variable')
+
+        # Run gradient check
+        df_out = vvd_gradient_check(df_in, df_grad, grad_var)
+
+        print('Done')
+
+        # Print summary statistics
+        print(len(df_out.loc[df_out.Gradient_check_flag == 1, 'Gradient_check_flag']))  # gradient
+        print(len(df_out.loc[df_out.Gradient_check_flag == 2, 'Gradient_check_flag']))  # inversion
+        print(len(df_out.loc[df_out.Gradient_check_flag == 3, 'Gradient_check_flag']))  # ZSI
+        print(len(df_out.loc[df_out.Gradient_check_flag == 4, 'Gradient_check_flag']))  # ZSI and gradient
+        print(len(df_out.loc[df_out.Gradient_check_flag == 5, 'Gradient_check_flag']))  # ZSI and inversion
+
+        df_outname = df_file.replace('rng_check_done', 'grad_check')
+        print(df_outname)
+
+        df_out.to_csv(df_outdir + df_outname, index=False)
+
+        df_out2 = vvd_apply_value_flag(df_out, 'Gradient_check_flag')
+
+        df_out2_name = df_outname.replace('grad_check', 'grad_check_done')
+        df_out2.to_csv(df_outdir + df_out2_name, index=False)

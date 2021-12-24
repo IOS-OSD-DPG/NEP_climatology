@@ -4,6 +4,8 @@ import pandas as pd
 import numpy as np
 from tqdm import trange
 from clim_helpers import vvd_apply_value_flag
+import glob
+from os.path import basename
 
 
 def vvd_depth_check(vvd):
@@ -67,36 +69,47 @@ def vvd_depth_check(vvd):
 
 # ---------------------------STEP 1: Depth check----------------------------
 
+# nan_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#           'value_vs_depth\\6_filtered_for_nans\\'
+
 nan_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-          'value_vs_depth\\6_filtered_for_nans\\'
+          'value_vs_depth\\6_filtered_for_nans\\sep_by_origin\\'
 
-# nan_files = glob.glob(nan_dir + '*.csv')
-# nan_files.remove(nan_dir + 'ALL_Oxy_1991_2020_value_vs_depth_nan_rm.csv')
-# print(len(nan_files))
-
-# df = pd.read_csv(nan_files[0])
-
-nan_vvd = 'Oxy_1991_2020_value_vs_depth_nan_rm.csv'
-# nan_vvd = 'WOD_PFL_Oxy_1991_2020_value_vs_depth_nan_rm.csv'
-
-df_in = pd.read_csv(nan_dir + nan_vvd)
-
-df_out = vvd_depth_check(df_in)
-df_outname = nan_vvd.replace('nan_rm', 'dep_check')
 df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-            'value_vs_depth\\7_depth_check\\'
+                    'value_vs_depth\\7_depth_check\\'
 
-df_out.to_csv(df_outdir + df_outname, index=False)
+for var in ["Temp", 'Sal']:
+    nan_files = glob.glob(nan_dir + '*{}*.csv'.format(var))
+    print(len(nan_files))
+    # nan_files.remove(nan_dir + 'ALL_Oxy_1991_2020_value_vs_depth_nan_rm.csv')
+    # print(len(nan_files))
 
-# Apply the flags in a separate df
-# df_in_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-#              'value_vs_depth\\6_depth_check\\' \
-#              'ALL_Oxy_1991_2020_value_vs_depth_dep_check.csv'
+    # df = pd.read_csv(nan_files[0])
 
-df_in_name = df_outdir + df_outname
-df_in = pd.read_csv(df_in_name)
+    # nan_vvd = 'Oxy_1991_2020_value_vs_depth_nan_rm.csv'
+    # nan_vvd = 'WOD_PFL_Oxy_1991_2020_value_vs_depth_nan_rm.csv'
 
-df_out = vvd_apply_value_flag(df_in, 'Depth_check_flag')
-df_out_name = df_in_name.replace('dep_check', 'dep_check_done')
-df_out.to_csv(df_out_name, index=False)
+    for f in nan_files:
+        print(basename(f))
+        df_in = pd.read_csv(f)
+
+        df_out = vvd_depth_check(df_in)
+
+        df_outname = df_outdir + basename(f).replace('nan_rm', 'dep_check')
+
+        df_out.to_csv(df_outname, index=False)
+
+        # Apply the flags in a separate df
+        # df_in_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+        #              'value_vs_depth\\6_depth_check\\' \
+        #              'ALL_Oxy_1991_2020_value_vs_depth_dep_check.csv'
+
+        df_in_name = df_outname
+        df_in = pd.read_csv(df_in_name)
+
+        df_out = vvd_apply_value_flag(df_in, 'Depth_check_flag')
+        df_outname2 = df_in_name.replace('dep_check', 'dep_check_done')
+        df_out.to_csv(df_outname2, index=False)
+
+print('done')
 

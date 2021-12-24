@@ -154,15 +154,15 @@ def pdt_inexact_dupl(df):
         mask_lat = df_copy.loc[:, 'Latitude'].between(
             df_copy.loc[ind[i], 'Latitude'] - latlon_lim,
             df_copy.loc[ind[i], 'Latitude'] + latlon_lim,
-            inclusive=True)
+            inclusive='both')
         mask_lon = df_copy.loc[:, 'Longitude'].between(
             df_copy.loc[ind[i], 'Longitude'] - latlon_lim,
             df_copy.loc[ind[i], 'Longitude'] + latlon_lim,
-            inclusive=True)
+            inclusive='both')
         mask_time = df_copy.loc[:, 'Time_pd'].between(
             df_copy.loc[ind[i], 'Time_pd'] - t_lim,
             df_copy.loc[ind[i], 'Time_pd'] + t_lim,
-            inclusive=True)
+            inclusive='both')
 
         # Mask to check for same instrument
         instrument_type = df_copy.loc[ind[i], 'Instrument_type']
@@ -235,18 +235,18 @@ def pdt_inexact_dupl(df):
 duplicate_folder = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
                    'profile_data_tables\\duplicates_flagged\\'
 
-df_all = pd.read_csv(cb_edf_name)
+# df_all = pd.read_csv(cb_edf_name)
+#
+# df_out = pdt_inexact_dupl(df_all)
+#
+# which = 'ALL'  # 'PFL'  # ALL
+#
+# df_all_out_name = duplicate_folder + '{}_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
+#     which, variable_name)
+#
+# df_out.to_csv(df_all_out_name)
 
-df_out = pdt_inexact_dupl(df_all)
-
-which = 'ALL'  # 'PFL'  # ALL
-
-df_all_out_name = duplicate_folder + '{}_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
-    which, variable_name)
-
-df_out.to_csv(df_all_out_name)
-
-for varname in ['Temp', 'Sal']:
+for varname in ['Temp', 'Sal']:  #
     cb_edf_name = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
                   'profile_data_tables\\duplicates_flagged\\' \
                   'ALL_Profiles_{}_1991_2020_cb_edf.csv'.format(varname)
@@ -254,9 +254,9 @@ for varname in ['Temp', 'Sal']:
 
     df_out = pdt_inexact_dupl(df_all)
 
-    which = 'ALL'  # 'PFL'  # ALL
+    df_all_out_name = duplicate_folder + 'ALL_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
+        varname)
 
-    df_all_out_name = duplicate_folder + '{}_Profiles_{}_1991_2020_ie_001ll_pi.csv'.format(
-        which, varname)
+    df_out.to_csv(df_all_out_name)  # Include index!
 
 ##################################
