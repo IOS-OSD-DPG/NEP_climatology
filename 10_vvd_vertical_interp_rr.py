@@ -11,8 +11,8 @@ oceApprox docs: https://rdrr.io/cran/oce/man/oceApprox.html
 
 # Set R_HOME
 # Retrieve from command prompt using:> R RHOME
-import os
-os.environ['R_HOME'] = 'C:\\Users\\HourstonH\\Miniconda3\\envs\\clim38\\lib\\R'
+# import os
+# os.environ['R_HOME'] = 'C:\\Users\\HourstonH\\Miniconda3\\envs\\clim38\\lib\\R'
 
 from rpy2 import robjects
 from rpy2.robjects.packages import importr  # , isinstalled
@@ -45,20 +45,21 @@ roceApprox = robjects.r['oceApprox']
 
 # END OF R SETUP
 
-# # Import standard levels file
+# Import standard levels file
 # file_sl = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
 #           'WOA_Standard_Depths.txt'
-# sl_arr = get_standard_levels(file_sl)
+file_sl = '/home/hourstonh/Documents/climatology/lu_docs/WOA_MForeman_Standard_Depths.txt'
+sl_arr = get_standard_levels(file_sl)
 
-# Need to add some extra levels that the WOA is missing
-sl_arr = np.array([110, 120, 130, 140, 160, 170, 180, 190, 220, 240, 260,
-                   280, 320, 340, 360, 380])
+# # Need to add some extra levels that the WOA is missing
+# sl_arr = np.array([110, 120, 130, 140, 160, 170, 180, 190, 220, 240, 260,
+#                    280, 320, 340, 360, 380])
 
 # Check to make sure that the standard depths are correct
 # Length should be 102 for WOA18 levels
 print(len(sl_arr))
 
-# Diffs of the standard levels should be monotonous increasing
+# Diffs of the WOA standard levels should be monotonous increasing
 diffs2 = np.diff(np.diff(sl_arr))
 
 print(np.all(diffs2 >= 0))  # Want True
@@ -66,12 +67,13 @@ print(np.all(diffs2 >= 0))  # Want True
 # Begin processing
 
 # Import value vs depth data
-df_indir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-           'value_vs_depth\\9_gradient_check\\'
-df_infile = 'Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
+# df_indir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#            'value_vs_depth\\9_gradient_check\\'
+df_indir = '/home/hourstonh/Documents/climatology/data/value_vs_depth/9_gradient_check/'
+df_infile = df_indir + 'Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
 # df_infile = 'WOD_PFL_Oxy_1991_2020_value_vs_depth_grad_check_done.csv'
 
-df_vvd = pd.read_csv(df_indir + df_infile)
+df_vvd = pd.read_csv(df_infile)
 
 # Profile start indices
 # (index of the first measurement of each profile in the vvd df)
@@ -125,8 +127,9 @@ for i in trange(len(prof_start_ind)):  # len(prof_start_ind) 20
 
     # Skip computations if no standard level matches
     if len(sl_subsetter) == 0:
-        print('Warning: No standard level matches for profile number',
-              df_vvd.loc[indices[0], 'Profile_number'])
+        # print('Warning: No standard level matches for profile number',
+        #       df_vvd.loc[indices[0], 'Profile_number'])
+        pass
     elif len(sl_subsetter) > 0:
         # z_out is the standard levels to interpolate to in Python array format
         z_out = sl_arr[sl_subsetter]
@@ -177,8 +180,9 @@ df_out.loc[:, 'Profile_number'] = df_out.Profile_number.astype('int')
 df_out.loc[:, 'SL_depth_m'] = df_out.SL_depth_m.astype('int32')
 
 # Export dataframe to csv file
-df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-            'value_vs_depth\\10_vertical_interp\\'
+# df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#             'value_vs_depth\\10_vertical_interp\\'
+df_outdir = '/home/hourstonh/Documents/climatology/data/value_vs_depth/10_vertical_interp/'
 
 # 'rr' stands for Reiniger-Ross vertical interpolation
 # df_outname = 'Oxy_1991_2020_value_vs_depth_rr.csv'

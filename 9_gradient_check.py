@@ -73,12 +73,12 @@ def vvd_gradient_check(df, grad_df, grad_variable, verbose=False):
             subsetter_ZSI_lt_400 = np.where(
                 (depths[1:] <= 400) &
                 (d_gradients < -grad_df.loc[
-                    'Oxygen', 'MGV_Z_lt_400m'] * grad_df.loc[grad_variable, 'ZSI']) &
+                    grad_variable, 'MGV_Z_lt_400m'] * grad_df.loc[grad_variable, 'ZSI']) &
                 (values[1:] == 0.))[0]
             subsetter_ZSI_gt_400 = np.where(
                 (depths[1:] > 400) &
                 (d_gradients < -grad_df.loc[
-                    'Oxygen', 'MGV_Z_gt_400m'] * grad_df.loc[grad_variable, 'ZSI']) &
+                    grad_variable, 'MGV_Z_gt_400m'] * grad_df.loc[grad_variable, 'ZSI']) &
                 (values[1:] == 0.))[0]
 
             if verbose:
@@ -104,15 +104,25 @@ def vvd_gradient_check(df, grad_df, grad_variable, verbose=False):
 
 # Now do gradient checks: flag=1 if check failed; flag=0 if check passed
 
-df_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\8_range_check\\'
-grad_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\literature\\' \
-            'WOA docs\\wod18_users_manual_tables\\wod18_max_gradient_inversion.csv'
+# # Windows paths
+# df_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#          'value_vs_depth\\8_range_check\\'
+# grad_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\literature\\' \
+#             'WOA docs\\wod18_users_manual_tables\\wod18_max_gradient_inversion.csv'
+# df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#                 'value_vs_depth\\9_gradient_check\\'
 
-df_outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-                'value_vs_depth\\9_gradient_check\\'
+# Linux paths
+df_dir = '/home/hourstonh/Documents/climatology/data/value_vs_depth/8_range_check/'
+grad_file = '/home/hourstonh/Documents/climatology/literature/WOA docs/' \
+            'wod18_users_manual_tables/wod18_max_gradient_inversion.csv'
+df_outdir = '/home/hourstonh/Documents/climatology/data/value_vs_depth/9_gradient_check/'
 
-for var, grad_var in zip(['Temp', 'Sal'], ['Temperature', 'Salinity']):
+# Read in table of WOD18 maximum gradients and inversions
+df_grad = pd.read_csv(grad_file, index_col='Variable')
+
+# for var, grad_var in zip(['Temp', 'Sal'], ['Temperature', 'Salinity']):
+for var, grad_var in zip(['Temp'], ['Temperature']):
     print(var, grad_var)
     # df_file = 'Oxy_1991_2020_value_vs_depth_rng_check_done.csv'
     # df_file = 'WOD_PFL_Oxy_1991_2020_value_vs_depth_rng_check_done.csv'
@@ -121,15 +131,15 @@ for var, grad_var in zip(['Temp', 'Sal'], ['Temperature', 'Salinity']):
 
     for df_file in vvd_files:
         print(basename(df_file))
-        df_in = pd.read_csv(df_dir + df_file)
-
-        # Read in table of WOD18 maximum gradients and inversions
-        df_grad = pd.read_csv(grad_file, index_col='Variable')
+        df_outname = df_outdir + basename(df_file).replace('rng_check_done', 'grad_check')
+        print(df_outname)
+        
+        df_in = pd.read_csv(df_file)
 
         # Run gradient check
         df_out = vvd_gradient_check(df_in, df_grad, grad_var)
 
-        print('Done')
+        print('Done gradient check')
 
         # Print summary statistics
         print(len(df_out.loc[df_out.Gradient_check_flag == 1, 'Gradient_check_flag']))  # gradient
@@ -138,12 +148,9 @@ for var, grad_var in zip(['Temp', 'Sal'], ['Temperature', 'Salinity']):
         print(len(df_out.loc[df_out.Gradient_check_flag == 4, 'Gradient_check_flag']))  # ZSI and gradient
         print(len(df_out.loc[df_out.Gradient_check_flag == 5, 'Gradient_check_flag']))  # ZSI and inversion
 
-        df_outname = df_file.replace('rng_check_done', 'grad_check')
-        print(df_outname)
-
-        df_out.to_csv(df_outdir + df_outname, index=False)
+        df_out.to_csv(df_outname, index=False)
 
         df_out2 = vvd_apply_value_flag(df_out, 'Gradient_check_flag')
 
         df_out2_name = df_outname.replace('grad_check', 'grad_check_done')
-        df_out2.to_csv(df_outdir + df_out2_name, index=False)
+        df_out2.to_csv(df_out2_name, index=False)

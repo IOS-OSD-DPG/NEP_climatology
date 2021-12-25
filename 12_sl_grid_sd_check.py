@@ -9,7 +9,7 @@
 import pandas as pd
 import numpy as np
 import glob
-from os.path import basename, exists
+from os.path import basename, exists, dirname
 from os import mkdir
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
@@ -23,9 +23,12 @@ from copy import deepcopy
 
 def map_5deg_grid():
     # gradient check done file
-    vvd_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-               'value_vs_depth\\11_replicate_check\\' \
-               'Oxy_1991_2020_value_vs_depth_rr_rep_val_check.csv'
+    # vvd_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+    #            'value_vs_depth\\11_replicate_check\\' \
+    #            'Oxy_1991_2020_value_vs_depth_rr_rep_val_check.csv'
+    vvd_file = '/home/hourstonh/Documents/climatology/data/value_vs_depth/' \
+               '11_replicate_check/' \
+               'Oxy_1991_2020_value_vs_depth_rr_part2_rep_val_check.csv'
 
     vvd_df = pd.read_csv(vvd_file)
 
@@ -69,9 +72,8 @@ def map_5deg_grid():
 
     plt.title('10_Oxy 5-degree grid')
 
-    dest_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-               'value_vs_depth\\11_replicate_check\\'
-    png_name = 'Oxy_1991_2020_5deg_grid_60.png'
+    dest_dir = dirname(vvd_file) + '/'
+    png_name = 'Oxy_1991_2020_part2_5deg_grid_60.png'
 
     plt.savefig(dest_dir + png_name, dpi=400)
 
@@ -152,7 +154,7 @@ def sl_std_check_basic(df_in):
     return outdir + outname, outdir + outname2
 
 
-def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
+def sl_std_5deg_check(vvd_path, out_dir, szn, sd_multiplier_df, sl_arr, verbose=False):
     # Compute 5-degree square statistics in the Northeast Pacific Ocean
 
     # vvd_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
@@ -160,17 +162,6 @@ def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
     #            'Oxy_1991_2020_value_vs_depth_rr_1_3.csv'
 
     vvd = pd.read_csv(vvd_path)
-
-    # WOA standard deviation multiplier file
-    sd_multiplier_file = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\' \
-                         'lu_docs\\five_degrees_sd_multiplier_sept1.txt'
-
-    sd_multiplier_df = pd.read_csv(sd_multiplier_file, skiprows=1)
-
-    # Standard level file -- returns an array of the standard levels
-    sl_path = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
-              'WOA_Standard_Depths.txt'
-    sl_arr = get_standard_levels(sl_path)
 
     # # Index vvd by unique profile number
     # prof_start_ind = np.unique(vvd.Profile_number, return_index=True)[1]
@@ -356,7 +347,7 @@ def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
                 sq_mean2_df.loc[subsetter_sd_multiplier, stats_lvl] = sq_mean2
                 sq_sd2_df.loc[subsetter_sd_multiplier, stats_lvl] = sq_sd2
 
-    out_subdir = out_dir + 'nprof_mean_sd\\'
+    out_subdir = out_dir + 'nprof_mean_sd'
     if not exists(out_subdir):
         mkdir(out_subdir)
 
@@ -372,11 +363,16 @@ def sl_std_5deg_check(vvd_path, out_dir, szn, verbose=False):
     return vvd
 
 
-def run_sl_sd_check(file_path, dest_dir):
+def run_sl_sd_check(file_path, dest_dir, sd_multiplier_df, sl_file):
     # Get season names
     # JFM AMJ JAS OND
     szn_abbrev = file_path[-7:-4]
-    df_out = sl_std_5deg_check(file_path, dest_dir, szn_abbrev)
+    
+    sl_arr = get_standard_levels(sl_file)  # Get array of standard levels in increasing order
+    
+    print(sl_arr)
+    
+    df_out = sl_std_5deg_check(file_path, dest_dir, szn_abbrev, sd_multiplier_df, sl_arr)
 
     # See printouts below
     print(len(df_out))
@@ -388,10 +384,14 @@ def run_sl_sd_check(file_path, dest_dir):
     return df_out
 
 
-in_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\11_replicate_check\\by_season\\'
+# in_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#          'value_vs_depth\\11_replicate_check\\by_season\\'
 
-infiles = glob.glob(in_dir + '*.csv')
+in_dir = '/home/hourstonh/Documents/climatology/data/value_vs_depth/' \
+         '11_replicate_check/'
+
+infiles = glob.glob(in_dir + '*Temp*.csv')
+print(len(infiles))
 
 # Need the seasons in order
 infiles.sort()
@@ -402,24 +402,52 @@ infiles.sort()
 # STANDARD DEVIATION CHECKS
 # path_list = sl_std_check_basic(df)
 
-output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-             'value_vs_depth\\12_stats_check\\'
+# WINDOWS paths
+# output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#              'value_vs_depth\\12_stats_check\\'
+# sd_multiplier = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\' \
+#                 'lu_docs\\five_degrees_sd_multiplier_sept1.txt'
+# sl_fname = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\' \
+#            'WOA_Standard_Depths.txt'
+
+# LINUX paths
+output_dir = '/home/hourstonh/Documents/climatology/data/value_vs_depth/' \
+             '12_stats_check/'
+# sd_multiplier_fname2 = '/home/hourstonh/Documents/climatology/lu_docs/' \
+#                        'five_degrees_sd_multiplier_sept1.txt'
+sd_multiplier_fname = '/home/hourstonh/Documents/climatology/lu_docs/' \
+                      'five_degrees_sd_multiplier_dec14.txt'
+# sl_fname = '/home/hourstonh/Documents/climatology/lu_docs/' \
+#                       'MForeman_missing_standard_depths_dec14.txt'
+sl_fname = '/home/hourstonh/Documents/climatology/lu_docs/' \
+           'WOA_Standard_Depths_dec14.txt'
+
+# --------------------------------------------------------------------------------
+
+# Need to read df in differently for different versions!!!!!!!!!!!!
+sd_df = pd.read_csv(sd_multiplier_fname, skiprows=1)
+# sd_df2 = pd.read_csv(sd_multiplier_fname2, skiprows=1)
+
 
 for f in infiles:
     print(basename(f))
 
-    dfout = run_sl_sd_check(f, output_dir)
+    dfout = run_sl_sd_check(f, output_dir, sd_df, sl_fname)
 
     # Remove values that failed the sd check
     dfout_drop = deepcopy(dfout.loc[dfout.SD_flag == 0])
 
     dfout_drop.drop(columns='SD_flag', inplace=True)
 
-    dfout_drop_name = basename(f).replace('.', '_sd_done.')
+    dfout_drop_name = basename(f).replace('rr_rep_val_check', 'sd_done')
 
     dfout_drop.to_csv(output_dir + dfout_drop_name, index=False)
 
     # continue
+
+
+# PLOT
+# map_5deg_grid()
 
 """Output Sept 2, 2021 WRONG:
 Oxy_1991_2020_value_vs_depth_rr_AMJ.csv

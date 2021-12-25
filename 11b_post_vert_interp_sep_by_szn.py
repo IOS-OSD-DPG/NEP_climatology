@@ -4,9 +4,13 @@ import pandas as pd
 import numpy as np
 from tqdm import trange
 
-infile = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\11_replicate_check\\' \
-         'Oxy_1991_2020_value_vs_depth_rr_rep_val_check.csv'
+# infile = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#          'value_vs_depth\\11_replicate_check\\' \
+#          'Oxy_1991_2020_value_vs_depth_rr_rep_val_check.csv'
+
+infile = '/home/hourstonh/Documents/climatology/data/value_vs_depth/' \
+         '11_replicate_check/' \
+         'Oxy_1991_2020_value_vs_depth_rr_part2_rep_val_check.csv'
 
 df_in = pd.read_csv(infile)
 
@@ -46,8 +50,10 @@ for i in trange(len(prof_start_ind)):
 
 # Export dfs
 
-outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
-         'value_vs_depth\\11_replicate_check\\by_season\\'
+# outdir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+#          'value_vs_depth\\11_replicate_check\\by_season\\'
+outdir = '/home/hourstonh/Documents/climatology/data/value_vs_depth/' \
+         '11_replicate_check/by_season/'
 
 df_winter.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_JFM.csv', index=False)
 df_spring.to_csv(outdir + 'Oxy_1991_2020_value_vs_depth_rr_AMJ.csv', index=False)
