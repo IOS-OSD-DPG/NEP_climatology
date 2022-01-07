@@ -3,7 +3,7 @@ import numpy as np
 from tqdm import trange
 from clim_helpers import vvd_apply_value_flag
 import glob
-from os.path import basename
+from os.path import basename, join
 
 
 def vvd_gradient_check(df, grad_df, grad_variable, verbose=False):
@@ -122,18 +122,20 @@ df_outdir = '/home/hourstonh/Documents/climatology/data/value_vs_depth/9_gradien
 df_grad = pd.read_csv(grad_file, index_col='Variable')
 
 # for var, grad_var in zip(['Temp', 'Sal'], ['Temperature', 'Salinity']):
-for var, grad_var in zip(['Temp'], ['Temperature']):
+# for var, grad_var in zip(['Temp'], ['Temperature']):
+# for var, grad_var in zip(['Temp', 'Sal'], ['Temperature', 'Salinity']):
+for var, grad_var in zip(['Sal'], ['Salinity']):
     print(var, grad_var)
     # df_file = 'Oxy_1991_2020_value_vs_depth_rng_check_done.csv'
     # df_file = 'WOD_PFL_Oxy_1991_2020_value_vs_depth_rng_check_done.csv'
-    vvd_files = glob.glob(df_dir + '*{}*done.csv'.format(var))
+    vvd_files = glob.glob(df_dir + '*{}*rng_check_done.csv'.format(var))
     print(len(vvd_files))
 
     for df_file in vvd_files:
         print(basename(df_file))
         df_outname = df_outdir + basename(df_file).replace('rng_check_done', 'grad_check')
         print(df_outname)
-        
+
         df_in = pd.read_csv(df_file)
 
         # Run gradient check
@@ -148,9 +150,14 @@ for var, grad_var in zip(['Temp'], ['Temperature']):
         print(len(df_out.loc[df_out.Gradient_check_flag == 4, 'Gradient_check_flag']))  # ZSI and gradient
         print(len(df_out.loc[df_out.Gradient_check_flag == 5, 'Gradient_check_flag']))  # ZSI and inversion
 
+        df_outname = join(df_outdir, basename(df_file).replace('rng_check_done', 'grad_check'))
+        print(df_outname)
+
         df_out.to_csv(df_outname, index=False)
 
         df_out2 = vvd_apply_value_flag(df_out, 'Gradient_check_flag')
 
         df_out2_name = df_outname.replace('grad_check', 'grad_check_done')
+        print(df_out2_name)
+        print()
         df_out2.to_csv(df_out2_name, index=False)

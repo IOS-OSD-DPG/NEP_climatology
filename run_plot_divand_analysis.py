@@ -7,9 +7,9 @@ from pandas import read_csv
 colourmap = "Blues"
 variable = "Oxy"
 variable_units = r"$\mu$" + "mol/kg"
-standard_depth = 0
-years = np.arange(1992, 2021)
-season = "OND"
+standard_depth = 5
+years = np.arange(2012, 2021)
+season = "JFM"
 # nle_value = 1
 lenxy_method = "fithorzlen"  # correlation length estimation method
 

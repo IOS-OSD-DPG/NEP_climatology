@@ -155,7 +155,7 @@ def read_climatologies(file_path, output_folder, season):
     return data_dict
 
 
-def read_climatologies_v2(tri_dir, clim_data_file, season):
+def read_climatologies_v2(tri_dir, clim_data_file, season, is_surface=False):
     """
     author: Hana Hourston
     :param tri_dir: folder containing .ngh and .tri files for unstructured triangle grid
@@ -195,12 +195,13 @@ def read_climatologies_v2(tri_dir, clim_data_file, season):
 
     data_dict['grid_depth'] = grid_depth
 
-    # write mask index for each grid depth
-    for i in range(0, 52, 1):
-        variable_name = 'mask_' + str(int(abs(grid_depth[i]))) + 'm'
-        var_depth = copy.deepcopy(data['depth'])
-        var_depth = np.where(var_depth < grid_depth[i], 0, 1)
-        data_dict[variable_name] = var_depth
+    if not is_surface:
+        # write mask index for each grid depth
+        for i in range(0, 52, 1):
+            variable_name = 'mask_' + str(int(abs(grid_depth[i]))) + 'm'
+            var_depth = copy.deepcopy(data['depth'])
+            var_depth = np.where(var_depth < grid_depth[i], 0, 1)
+            data_dict[variable_name] = var_depth
 
     if clim_data_file.endswith('.txt'):
         clim_df = pd.read_csv(clim_data_file, sep="\t")
@@ -291,7 +292,8 @@ def plot_clim_triangle(data_dict, file_path, left_lon, right_lon, bot_lat, top_l
 
 
 def plot_clim_triangle_v2(tri_dir, clim_data_file, left_lon, right_lon, bot_lat, top_lat,
-                          output_dir, var_name, var_units, var_cmap, season, depth):
+                          output_dir, var_name, var_units, var_cmap, season, depth,
+                          is_smoothed=False):
     """
     author: Hana Hourston
     :param tri_dir: directory containing 'nep35_reord_latlon_wgeo.ngh' and 'nep35_reord.tri'
@@ -360,7 +362,8 @@ def plot_clim_triangle_v2(tri_dir, clim_data_file, left_lon, right_lon, bot_lat,
     m.fillcontinents(color='0.8')
 
     cax = plt.tripcolor(xpt, ypt, triangles, var_data, cmap=var_cmap, edgecolors='none',
-                        vmin=230, vmax=330)
+                        vmin=0, vmax=20)
+                        # vmin=230, vmax=330)
                         # vmin=np.nanmin(var_data), vmax=np.nanmax(var_data))
 
     # set the nan to white on the map
@@ -377,9 +380,13 @@ def plot_clim_triangle_v2(tri_dir, clim_data_file, left_lon, right_lon, bot_lat,
     meridians = np.arange(left_lon, -100.0, 15.)  # meridians = np.linspace(int(left_lon), right_lon, 5)
     m.drawmeridians(meridians, labels=[False, False, True, True])
 
-    plt.title("Season: {}".format(season))
+    if is_smoothed:
+        plt.title("Season: {}; Smoothed".format(season), pad=30)
+        png_filename = output_dir + "{}_{}m_{}_TG_Smoothed_mean_est.png".format(var_name, depth, season)
+    else:
+        plt.title("Season: {}".format(season), pad=30)
+        png_filename = output_dir + "{}_{}m_{}_TG_mean_est.png".format(var_name, depth, season)
 
-    png_filename = output_dir + "{}_{}m_{}_TG_mean_est.png".format(var_name, depth, season)
     fig.savefig(png_filename, dpi=400)
     plt.close(fig)
 
@@ -616,7 +623,7 @@ def convert_to_tif(data_dict, file_path, output_folder, season, depth):
     return
 
 
-def convert_to_tif_v2(data_dict, output_dir, var_name, depth, season):
+def convert_to_tif_v2(data_dict, output_dir, var_name, depth, season, is_smoothed=False):
     """
     author: Hana Hourston
     Convert data dictionary to tif
@@ -639,8 +646,12 @@ def convert_to_tif_v2(data_dict, output_dir, var_name, depth, season):
     transform = Affine.translation(
         x_lon_r[0][0] - res / 2, y_lat_r[0][0] - res / 2) * Affine.scale(res, res)
 
-    tif_name = os.path.join(output_dir + "{}_{}m_{}_mean_est.tif".format(
-        var_name, depth, season))
+    if is_smoothed:
+        tif_name = os.path.join(output_dir + "{}_{}m_{}_Smooth_mean_est.tif".format(
+            var_name, depth, season))
+    else:
+        tif_name = os.path.join(output_dir + "{}_{}m_{}_mean_est.tif".format(
+            var_name, depth, season))
 
     raster_output = rasterio.open(
         tif_name,
@@ -690,12 +701,12 @@ def EEZ_clip(file_path, output_folder, season, depth):
 # ----------------------------Set parameters--------------------------------------
 
 # Specify index
-variable_name = "Oxy"
-variable_units = r"$\mu$" + "mol/kg"
-var_colourmap = "Blues"
+variable_name = 'Temp'  # "Oxy"
+variable_units = r'$^\circ$' + 'C'  # r"$\mu$" + "mol/kg"
+var_colourmap = 'YlOrBr'  # "Blues"
 season_abbrev = "JFM"  # ["JFM", "AMJ", "JAS", "OND"] 'spr'
 season_abbrevs = ["JFM", "AMJ", "JAS", "OND"]
-standard_depth = '5'
+standard_depth = '0'  # '5'
 # output_folder = 'T_spr'
 # output_folder = "{}m".format(standard_depth)
 
@@ -704,7 +715,7 @@ standard_depth = '5'
 # file_path = '/home/guanl/Desktop/MSP/Climatology'
 trigrid_path = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\MForeman\\"
 clim_data_path = "C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\" \
-                 "ODV_outputs\\{}m\\".format(standard_depth)
+                 "ODV_outputs\\{}m\\{}\\".format(standard_depth, variable_name)
 # output_path = '/home/guanl/Desktop/MSP/Climatology/'
 output_path = clim_data_path
 grd_file = os.path.join(trigrid_path, 'nep35_reord_latlon_wgeo.ngh')
@@ -714,44 +725,53 @@ tri_file = os.path.join(trigrid_path, 'nep35_reord.tri')
 
 # ------------------------------run functions-------------------------------------------
 
-fname = clim_data_path + "Oxy_{}m_{}_TG_mean_est.txt".format(
-    standard_depth, season_abbrev)
-dat_dict = read_climatologies_v2(trigrid_path, fname, season_abbrev)
+fname = clim_data_path + "{}_{}_TG_Smooth_mean_est.txt".format(
+    variable_name, season_abbrev)
+dat_dict = read_climatologies_v2(trigrid_path, fname, season_abbrev, is_surface=True)
 
 left_lon, right_lon, bot_lat, top_lat = [-160, -102, 25, 62]
 
+plot_clim_triangle_v2(
+    trigrid_path, fname, left_lon=left_lon, right_lon=right_lon, bot_lat=bot_lat,
+    top_lat=top_lat, output_dir=output_path, var_name=variable_name,
+    var_units=variable_units, var_cmap=var_colourmap, season=season_abbrev,
+    depth=standard_depth, is_smoothed=False)
+
 dat_dict_new = triangle_to_regular_v2(
-    dat_dict, trigrid_path, clim_data_path, "Oxy", standard_depth, season_abbrev,
-    left_lon=-160, right_lon=-102, bot_lat=25, top_lat=62, var_units=variable_units,
-    var_cmap=var_colourmap)
+    dat_dict, trigrid_path, clim_data_path, variable_name, standard_depth, season_abbrev,
+    left_lon=left_lon, right_lon=right_lon, bot_lat=bot_lat, top_lat=top_lat,
+    var_units=variable_units, var_cmap=var_colourmap)
 
 tif_filename = convert_to_tif_v2(dat_dict_new, output_path, variable_name, standard_depth,
-                                 season_abbrev)
+                                 season_abbrev, True)
 
 for sa in season_abbrevs[:]:
     print(sa)
-    clim_data_filename = os.path.join(clim_data_path + "{}_{}m_{}_TG_mean_est.txt".format(
-        variable_name, standard_depth, sa))
+    # clim_data_filename = os.path.join(clim_data_path + "{}_{}m_{}_TG_mean_est.txt".format(
+    #     variable_name, standard_depth, sa))
+    clim_data_filename = os.path.join(clim_data_path + "{}_{}_TG_mean_est.txt".format(
+        variable_name, sa))
+    # clim_data_filename = os.path.join(clim_data_path + "{}_{}_TG_Smooth_mean_est.txt".format(
+    #     variable_name, sa))
+    smoothed = False  # True
 
     # # Plot the climatology for the selected variable
     # plot_clim_triangle_v2(
-    #     trigrid_path, clim_data_filename, left_lon=-160, right_lon=-102, bot_lat=25,
-    #     top_lat=62, output_dir=output_path, var_name=variable_name,
-    #     var_units=variable_units, var_cmap=var_colourmap, season=sa,
-    #     depth=standard_depth)
+    #     trigrid_path, clim_data_filename, left_lon=left_lon, right_lon=right_lon,
+    #     bot_lat=bot_lat, top_lat=top_lat, output_dir=output_path, var_name=variable_name,
+    #     var_units=variable_units, var_cmap=var_colourmap, season=sa, depth=standard_depth,
+    #     is_smoothed=smoothed)
 
     # Must convert triangle to regular before converting to tif
-    dat_dict = read_climatologies_v2(trigrid_path, clim_data_filename, sa)
-
-    left_lon, right_lon, bot_lat, top_lat = [-160, -102, 25, 62]
+    dat_dict = read_climatologies_v2(trigrid_path, clim_data_filename, sa, is_surface=True)
 
     dat_dict_new = triangle_to_regular_v2(
-        dat_dict, trigrid_path, clim_data_path, "Oxy", standard_depth, sa,
+        dat_dict, trigrid_path, clim_data_path, variable_name, standard_depth, sa,
         left_lon=-160, right_lon=-102, bot_lat=25, top_lat=62, var_units=variable_units,
         var_cmap=var_colourmap)
 
     tif_filename = convert_to_tif_v2(dat_dict_new, output_path, variable_name,
-                                     standard_depth, sa)
+                                     standard_depth, sa, smoothed)
 
 # ------------------------End of Hana's modifications----------------------------------
 # -------------------------------------------------------------------------------------

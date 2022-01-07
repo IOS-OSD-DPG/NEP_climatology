@@ -152,6 +152,18 @@ def generate_gebco_mask_dask(lon_obs, lat_obs, elevation, Lon2d, Lat2d, depth, y
     return ncout_filename
 
 
+def generate_gebco_full_mask(elevation, Lon2d, Lat2d, var_name, depth, season,
+                             ncout_dir):
+    mask = (-elevation >= depth)
+    ncout = xr.Dataset(coords={'lon': Lon2d[0], 'lat': Lat2d[:, 0]},
+                       data_vars={'mask': (('lat', 'lon'), mask)})
+    ncout_filename = os.path.join(ncout_dir + '{}_{}m_{}_mask_6min.nc'.format(
+        var_name, depth, season))
+    ncout.to_netcdf(ncout_filename)
+    ncout.close()
+    return ncout_filename
+
+
 def plot_mask_coverage(mask_filename):
     # Check that coverage looks right
     mask_ds = open_dataset(mask_filename)
@@ -176,14 +188,14 @@ def plot_mask_coverage(mask_filename):
 
 # -----------------------------Choose data file----------------------------------
 var_name = 'Oxy'
-years = np.arange(2013,2021)  # np.arange(1991, 2021)  # [1995, 2005]
+years = np.arange(1992,2018)  # np.arange(1991, 2021)  # [1995, 2005]
 szns = ['JFM', 'AMJ', 'JAS', 'OND']
 
 # standard_depths = np.arange(1500, 500, -50)  # np.arange(3900, 2900, -100)
-standard_depths = np.arange(0, 105, 5)  # [5]
+standard_depths = [0] # np.arange(0, 105, 5)  # [5]
 # Already made all 0m and 5m masks so skip to 10m
 # standard_depths = get_standard_levels(
-#     'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\WOA_Standard_Depths.txt')[2:]
+#     'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\lu_docs\\WOA_Standard_Depths.txt')[75:]
 
 radius_deg = 2  # search radius
 radius_km = deg2km(radius_deg)  # degrees length
@@ -209,6 +221,8 @@ gebco_data = xr.open_dataset(gebco_filename)
 
 # Create 2d grid of lat and lon
 Lon, Lat = np.meshgrid(gebco_data.lon.data, gebco_data.lat.data)
+
+# ---------------------------------------------------------------------------------
 
 # Iterate through all requested files
 for dep in standard_depths:
@@ -239,6 +253,25 @@ for dep in standard_depths:
                                                 np.array(sldata['Latitude']),
                                                 gebco_data.elevation.data, Lon, Lat,
                                                 dep, yr, szn, out_dir)
+
+# ----------------------------------mask for step 19--------------------------------
+step19_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\' \
+             'value_vs_depth\\19_divand_to_full_NEP\\masks\\'
+
+def step19_masks():
+    for dep in standard_depths:
+        print()
+        print('--------------------Depth: {}m--------------------'.format(dep))
+        for szn in szns:
+            print(szn)
+            # Skip making mask if it already exists
+            if os.path.exists(step19_dir + '{}_{}m_{}_mask_6min.nc'.format(
+                    var_name, dep, szn)):
+                print('Mask already exists for this file -- skipping')
+                continue
+            mask_out = generate_gebco_full_mask(gebco_data.elevation.data, Lon, Lat, var_name,
+                                                dep, szn, step19_dir)
+    return
 
 # ----------------------------------------------------------------------------------
 # # RAM calculations

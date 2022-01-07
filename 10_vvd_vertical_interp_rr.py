@@ -22,6 +22,8 @@ from tqdm import trange
 # import csv
 from clim_helpers import get_standard_levels
 # from scipy import interpolate
+import glob
+from os.path import basename
 
 # R PREPARATION
 
@@ -212,6 +214,9 @@ num_prof_in = len(np.unique(df_vvd.loc[:, 'Profile_number']))
 num_prof_out = len(np.unique(df_out.Profile_number))
 
 print(num_prof_in, num_prof_out, num_prof_in-num_prof_out)
+
+
+print('done')
 
 """ Version 1
 100%|██████████| 29118/29118 [46:30<00:00, 10.43it/s]

@@ -131,13 +131,11 @@ function run_divand_with_fithorzlen(obs_dir, mask_dir, fitcor_dir, output_dir,
 end
 
 
-function run_divand_with_fithorzlen_batch(obs_dir, mask_dir, fitcor_dir, output_dir,
-        var_name, depth, yr, szn, pm, pn)
+function run_divand_with_fithorzlen_batch(obs_filename, mask_filename, fitcor_dir, 
+        output_dir, var_name, depth, yr, szn, pm, pn, len_estimate)
     # Open the required files
 
     # Read in standard level data file
-    obs_filename = string(obs_dir, var_name, "_", depth, "m_", yr, "_", szn, ".csv")
-
     println(obs_filename)
 
     # Pipe operator to dataframe
@@ -158,19 +156,7 @@ function run_divand_with_fithorzlen_batch(obs_dir, mask_dir, fitcor_dir, output_
 
     println("Computed observation anomalies")
 
-    # --------------------Set correlation length from fithorzlen-------------------
-
-    fitcor_filename = string(fitcor_dir, "Oxy_fithorzlen_mean_lenxy_100m.csv")
-
-    fitcor_df = CSV.File(fitcor_filename) |> DataFrame
-
-    year_rownum = yr - 1990
-    fitcor_lenxy = fitcor_df[year_rownum, szn]
-
     # --------------------------------Read in mask---------------------------------
-
-    mask_filename = string(mask_dir, var_name, "_", standard_depth, "m_", 
-        yr, "_", szn, "_mask_6min.nc")
 
     mask_ds = Dataset(mask_filename)
 
@@ -185,20 +171,56 @@ function run_divand_with_fithorzlen_batch(obs_dir, mask_dir, fitcor_dir, output_
 
     close(mask_ds)
 
-    # -------------------------Set some more parameters---------------------------
-
+    # -------------------------Set correlation length---------------------------
+    
+    # Set epsilon2 first
     signal_to_noise_ratio = 50.  # Default from Lu ODV session
-    epsilon2_guess = 1/signal_to_noise_ratio  # 1.
+    epsilon2 = 1/signal_to_noise_ratio  # 1.
 
-    # Choose number of testing points around the current value of L (corlen)
-    nl = 1
+    if len_estimate == "fithorzlen"
+        # Set correlation length from fithorzlen
 
-    # Choose number of testing points around the current value of epsilon2
-    ne = 1
+        fitcor_filename = string(fitcor_dir, "Oxy_fithorzlen_mean_lenxy_100m.csv")
 
-    # Choose cross-validation method
-    # 1: full CV; 2: sampled CV; 3: GCV; 0: automatic choice between the three
-    method = 3
+        fitcor_df = CSV.File(fitcor_filename) |> DataFrame
+
+        year_rownum = yr - 1990
+        fitcor_lenxy = fitcor_df[year_rownum, szn]
+        lenx = fitcor_lenxy
+        leny = fitcor_lenxy
+
+    elseif len_estimate == "gcv"
+        # Use Generalized cross-validation
+
+        # Set the first guesses for lenx and leny as 1/10 the domain of the observations
+        lenx_guess = (max(Lon2d) - min(Lon2d))/10
+        leny_guess = (max(Lat2d) - min(Lat2d))/10
+        println("lenx and leny guesses for GCV: ", lenx_guess, " ", leny_guess)
+
+        # Choose number of testing points around the current value of L (corlen)
+        nl = 1
+
+        # Choose number of testing points around the current value of epsilon2
+        ne = 1
+
+        # Choose cross-validation method
+        # 1: full CV; 2: sampled CV; 3: GCV; 0: automatic choice between the three
+        method = 3
+
+        bestfactorl,bestfactore,cvval,cvvalues,x2Ddata,y2Ddata,cvinter,xi2D,yi2D = DIVAnd_cv(
+            mask, (pm, pn), (Lon2d, Lat2d), (xobs, yobs), vanom, (lenx_guess, leny_guess),
+            epsilon2, nl, ne, method)
+        
+        new_lenx = bestfactorl * lenx
+        new_leny = bestfactorl * leny
+        new_epsilon2 = bestfactore * epsilon2
+
+        lenx = new_lenx
+        leny = new_leny
+        epsilon2 = new_epsilon2
+    end
+
+    println("Final lenx, leny, epsilon2: ", lenx, " ",leny, " ", epsilon2)
 
     # ----------------------------Run the analysis--------------------------------
 
@@ -207,7 +229,7 @@ function run_divand_with_fithorzlen_batch(obs_dir, mask_dir, fitcor_dir, output_
     # https://docs.julialang.org/en/v1/manual/control-flow/#Exception-Handling
     try
     	va = DIVAndrunfi(mask, (pm, pn), (Lon2d, Lat2d), (xobs, yobs), vanom,
-                     	 (fitcor_lenxy, fitcor_lenxy), epsilon2_guess)
+                     	 (lenx, leny), epsilon2_guess)
 
         # Add the output anomaly back to the mean of the observations
         vout = vmean .+ va
@@ -250,8 +272,8 @@ end
 # -----------------------------------------------------------------------------
 
 variable_name = "Oxy"
-standard_depth = 0
-years = collect(1992:2016)  # Creates increasing array
+standard_depth = 5
+years = collect(2012:2020)  # Creates increasing array
 season = "AMJ"
 # subsamp_interval = 1
 
@@ -300,6 +322,9 @@ pn_diva = convert(Array{Float64}, pmn_ds["pn"][:,:])
 
 close(pmn_ds)
 
+# Choose method for estimating correlation length
+len_estimate_method = "fithorzlen"
+
 for y=years
     # Check if csv observations file exists
     csv_filename = string(obs_folder, variable_name, "_", standard_depth, "m_", 
@@ -308,12 +333,22 @@ for y=years
         continue
     end
     
+    # File name of the observations
+    obs_name = string(obs_folder, variable_name, "_", standard_depth, "m_", y,
+        "_", season, ".csv")
+    
+    # Check if mask exists for current file
+    mask_name = string(mask_folder, variable_name, "_", standard_depth, "m_", y,
+        "_", season, "_mask_6min.nc")
     # Check if analysis has already been run on the current file
     output_name = string(output_folder, variable_name, "_", standard_depth, "m_", 
         y, "_", season, "_analysis2d.nc")
-    if !isfile(output_name)
-        ncname = run_divand_with_fithorzlen_batch(obs_folder, mask_folder, fitcor_folder, 
-            output_folder, variable_name, standard_depth, y, season, pm_diva, pn_diva)
+
+    # && is the Julia equivalent of Python "and"
+    if !isfile(output_name) && isfile(mask_name)
+        ncname = run_divand_with_fithorzlen_batch(obs_name, mask_name, fitcor_folder, 
+            output_folder, variable_name, standard_depth, y, season, pm_diva, pn_diva,
+            len_estimate_method)
         println(ncname)
     else
         println("Analysis file already exists -- skipping")

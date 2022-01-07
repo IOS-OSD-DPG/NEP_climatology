@@ -11,7 +11,7 @@ from tqdm import trange
 # to read 30 files, and calculate the mean for each location. Then generate
 # a file in the same format but with mean values.
 
-var_name = "Oxy"  # ['Temp', 'Sal', 'Oxy']
+var_name = "Temp"  # ['Temp', 'Sal', 'Oxy']
 # standard_depth = 10
 years = range(1991, 2021)
 szns = np.array(["JFM", "AMJ", "JAS", "OND"])
@@ -40,7 +40,7 @@ output_dir = 'C:\\Users\\HourstonH\\Documents\\NEP_climatology\\data\\ODV_output
 header = 0
 total_nodes = 97959
 
-for standard_depth in [80]:  # trange(1200, 2500, 200):  # trange(260, 420, 20):
+for standard_depth in [0]:  # 80, 150,  trange(1200, 2500, 200):  # trange(260, 420, 20):
     # Initialize dataframe to hold all season's data
     df_mean_all = pd.DataFrame()
 
@@ -68,6 +68,7 @@ for standard_depth in [80]:  # trange(1200, 2500, 200):  # trange(260, 420, 20):
 
         for i in range(len(years)):
             # Read in ODV data
+            # File names are not consistent so need to check which name to use
             odv_filename = os.path.join(data_dir, "{}_{}m_{}_TG_{}_est.txt".format(
                 var_name, standard_depth, szn, years[i]))
             # Check if filename is correct
@@ -76,11 +77,16 @@ for standard_depth in [80]:  # trange(1200, 2500, 200):  # trange(260, 420, 20):
                     var_name, szn, years[i]))
             # Check if filename is correct
             if not os.path.exists(odv_filename):
+                odv_filename = os.path.join(data_dir, "{}_{}_TG_mean_{}_est.txt".format(
+                    var_name, szn, years[i]))
+            # Check if filename is correct
+            if not os.path.exists(odv_filename):
                 odv_filename = os.path.join(data_dir, "{}_{}_TG_{}.txt".format(
                     var_name, szn, years[i]))
 
             # Check if file exists
             if os.path.exists(odv_filename):
+                print(odv_filename)
                 # Read in data
                 odv_df = pd.read_csv(odv_filename, sep="\t", header=header)
 
@@ -109,6 +115,9 @@ for standard_depth in [80]:  # trange(1200, 2500, 200):  # trange(260, 420, 20):
     print(df_mean_filename)
 
     df_mean_all.to_csv(df_mean_filename, index=False)
+
+# Check for nans in dataframe
+print(np.where(pd.isna(df_mean_all)))
 
 # ---------------------------------------------------------------------------------
 

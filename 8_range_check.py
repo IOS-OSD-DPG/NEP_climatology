@@ -20,7 +20,7 @@ def vvd_range_check(vvd, range_df):
                 i, 'Value'] <= range_df.loc[j, 'N_Pacific_max']
 
             if depth_cond and not range_cond:
-                # Flag the df row if value is out of range
+                # Flag the df row if value is not within accepted range
                 vvd.loc[i, 'Range_check_flag'] = 1
 
     return vvd
@@ -63,14 +63,15 @@ for var, range_file in zip(['Temp', 'Sal'], range_files):
         df_out = vvd_range_check(df_in, df_range)
 
         # Checks
-        print(len(df_out.loc[df_out.Range_check_flag == 1, 'Range_check_flag']))
+        print('number of values out of range:',
+              len(df_out.loc[df_out.Range_check_flag == 1, 'Range_check_flag']))
         indices_rng = np.where(df_out.Range_check_flag == 1)[0]
-        print(df_out.loc[indices_rng, ['Depth_m', 'Value']])
+        print('depths and values out of range', df_out.loc[indices_rng, ['Depth_m', 'Value']])
         # 24174 rows that were flagged during this check for Oxy: should limits be expanded??
 
         # df_out.drop(columns='Depth_check_flag', inplace=True)
 
-        df_outname = df_outdir + df_file.replace('dep_check_done', 'rng_check')
+        df_outname = df_outdir + basename(df_file).replace('dep_check_done', 'rng_check')
 
         df_out.to_csv(df_outname, index=False)
 
