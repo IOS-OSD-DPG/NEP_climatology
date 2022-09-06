@@ -1,6 +1,8 @@
 # NEP_climatology
 For producing temperature, salinity and oxygen climatology layers for the Northeast Pacific ocean, averaged over 1991-2020. The output is intended as an update from the 1981-2010 climatologies from Christian and Foreman (2013). 
 
+Author: Hana Hourston (DFO)
+
 ## Requirements:
 * Python >= 3.7
 * Julia >= 1.6.3 (older versions weren't tested but may be ok)
