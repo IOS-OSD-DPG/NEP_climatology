@@ -1,3 +1,5 @@
+# Reiniger-Ross (1968) vertical interpolation in the water column
+
 library(oce)
 library(stringr)
 
